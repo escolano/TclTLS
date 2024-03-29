@@ -42,11 +42,17 @@
  * Backwards compatibility for size type change
  */
 #if TCL_MAJOR_VERSION < 9 && TCL_MINOR_VERSION < 7
+    #include <limits.h>
+    #define TCL_SIZE_MAX INT_MAX
+
     #ifndef Tcl_Size
         typedef int Tcl_Size;
     #endif
 
     #define TCL_SIZE_MODIFIER ""
+    #define Tcl_GetSizeIntFromObj Tcl_GetIntFromObj
+    #define Tcl_NewSizeIntObj     Tcl_NewIntObj
+    #define Tcl_NewSizeIntFromObj Tcl_NewWideIntObj
 #endif
 
 #include <openssl/ssl.h>
