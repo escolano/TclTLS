@@ -363,7 +363,7 @@ DIST_INSTALL_DATA_RECUR	= CPPROG='cp -p -R' $(INSTALL)
 DIST_INSTALL_SCRIPT	= CPPROG='cp -p' $(INSTALL) -m 755
 
 dist-clean:
-	rm -rf $(DIST_DIR) $(DIST_ROOT)/$(PKG_DIR).tar.*
+	rm -rf $(DIST_DIR) $(top_builddir)/$(PKG_DIR).tar.*
 
 dist: dist-clean
 	# TEA files
