@@ -2190,6 +2190,8 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (!res) {nid = 0;}
     LAPPEND_STR(interp, objPtr, "signatureHashAlgorithm", OBJ_nid2ln(nid), -1);
 
+    /* Added in OpenSSL 1.1.1a */
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
     if (objc == 2) {
 	res = SSL_get_peer_signature_type_nid(statePtr->ssl, &nid);
     } else {
@@ -2197,6 +2199,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
     if (!res) {nid = 0;}
     LAPPEND_STR(interp, objPtr, "signatureType", OBJ_nid2ln(nid), -1);
+#endif
 
     Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
