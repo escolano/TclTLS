@@ -73,7 +73,7 @@ TEA_ADD_INCLUDES([])
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([])
 TEA_ADD_STUB_SOURCES([])
-TEA_ADD_TCL_SOURCES([library/tls.tcl])
+TEA_ADD_TCL_SOURCES([library/tls.tcl license.terms README.txt])
 
 #--------------------------------------------------------------------
 # You can add more files to clean if your extension creates any extra
@@ -89,9 +89,9 @@ TEA_ADD_CLEANFILES([pkgIndex.tcl tls.tcl.h.*])
 
 if test "${TEA_PLATFORM}" = "windows" ; then
     AC_DEFINE(BUILD_tls)
-    TEA_ADD_CLEANFILES([pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch])
+    TEA_ADD_CLEANFILES([*.lib *.dll *.exp *.ilk *.pdb vc*.pch])
 else
-    TEA_ADD_CLEANFILES([pkgIndex.tcl *.so])
+    TEA_ADD_CLEANFILES([*.so])
 fi
 AC_SUBST(CLEANFILES)
 
