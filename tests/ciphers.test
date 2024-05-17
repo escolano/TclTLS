@@ -20,7 +20,22 @@ foreach protocol [::tls::protocols] {::tcltest::testConstraint $protocol 1}
 ::tcltest::testConstraint OpenSSL [string match "OpenSSL*" [::tls::version]]
 
 # Helper functions
-proc lcompare {list1 list2} {set m "";set u "";foreach i $list1 {if {$i ni $list2} {lappend m $i}};foreach i $list2 {if {$i ni $list1} {lappend u $i}};return [list "missing" $m "unexpected" $u]}
+proc lcompare {list1 list2} {
+    set m ""
+    set u ""
+    foreach i $list1 {
+        if {$i ni $list2} {
+            lappend m $i
+        }
+    }
+    foreach i $list2 {
+        if {$i ni $list1} {
+            lappend u $i
+        }
+    }
+    return [list "missing" $m "unexpected" $u]
+}
+
 proc exec_get {delim args} {return [split [exec openssl {*}$args] $delim]}
 
 # Test protocols
@@ -33,81 +48,81 @@ test Protocols-1.1 {All} -body {
 # Test ciphers
 
 
-test CiphersAll-2.1 {SSL2} -constraints {ssl2} -body {
+test Ciphers_By_Protocol-2.1 {SSL2} -constraints {ssl2} -body {
 	lcompare [exec_get ":" ciphers -ssl2] [::tls::ciphers ssl2]
     } -result {missing {} unexpected {}}
 
-test CiphersAll-2.2 {SSL3} -constraints {ssl3} -body {
+test Ciphers_By_Protocol-2.2 {SSL3} -constraints {ssl3} -body {
 	lcompare [exec_get ":" ciphers -ssl3] [::tls::ciphers ssl3]
     } -result {missing {} unexpected {}}
 
-test CiphersAll-2.3 {TLS1} -constraints {tls1} -body {
+test Ciphers_By_Protocol-2.3 {TLS1.0} -constraints {tls1} -body {
 	lcompare [exec_get ":" ciphers -tls1] [::tls::ciphers tls1]
     } -result {missing {} unexpected {}}
 
-test CiphersAll-2.4 {TLS1.1} -constraints {tls1.1} -body {
+test Ciphers_By_Protocol-2.4 {TLS1.1} -constraints {tls1.1} -body {
 	lcompare [exec_get ":" ciphers -tls1_1] [::tls::ciphers tls1.1]
     } -result {missing {} unexpected {}}
 
-test CiphersAll-2.5 {TLS1.2} -constraints {tls1.2} -body {
+test Ciphers_By_Protocol-2.5 {TLS1.2} -constraints {tls1.2} -body {
 	lcompare [exec_get ":" ciphers -tls1_2] [::tls::ciphers tls1.2]
     } -result {missing {} unexpected {}}
 
-test CiphersAll-2.6 {TLS1.3} -constraints {tls1.3} -body {
+test Ciphers_By_Protocol-2.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get ":" ciphers -tls1_3] [::tls::ciphers tls1.3]
     } -result {missing {} unexpected {}}
 
 # Test cipher descriptions
 
 
-test CiphersDesc-3.1 {SSL2} -constraints {ssl2} -body {
+test Ciphers_With_Descriptions-3.1 {SSL2} -constraints {ssl2} -body {
 	lcompare [exec_get "\r\n" ciphers -ssl2 -v] [split [string trim [::tls::ciphers ssl2 1]] \n]
     } -result {missing {} unexpected {}}
 
-test CiphersDesc-3.2 {SSL3} -constraints {ssl3} -body {
+test Ciphers_With_Descriptions-3.2 {SSL3} -constraints {ssl3} -body {
 	lcompare [exec_get "\r\n" ciphers -ssl3 -v] [split [string trim [::tls::ciphers ssl3 1]] \n]
     } -result {missing {} unexpected {}}
 
-test CiphersDesc-3.3 {TLS1} -constraints {tls1} -body {
+test Ciphers_With_Descriptions-3.3 {TLS1.0} -constraints {tls1} -body {
 	lcompare [exec_get "\r\n" ciphers -tls1 -v] [split [string trim [::tls::ciphers tls1 1]] \n]
     } -result {missing {} unexpected {}}
 
-test CiphersDesc-3.4 {TLS1.1} -constraints {tls1.1} -body {
+test Ciphers_With_Descriptions-3.4 {TLS1.1} -constraints {tls1.1} -body {
 	lcompare [exec_get "\r\n" ciphers -tls1_1 -v] [split [string trim [::tls::ciphers tls1.1 1]] \n]
     } -result {missing {} unexpected {}}
 
-test CiphersDesc-3.5 {TLS1.2} -constraints {tls1.2} -body {
+test Ciphers_With_Descriptions-3.5 {TLS1.2} -constraints {tls1.2} -body {
 	lcompare [exec_get "\r\n" ciphers -tls1_2 -v] [split [string trim [::tls::ciphers tls1.2 1]] \n]
     } -result {missing {} unexpected {}}
 
-test CiphersDesc-3.6 {TLS1.3} -constraints {tls1.3} -body {
+test Ciphers_With_Descriptions-3.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get "\r\n" ciphers -tls1_3 -v] [split [string trim [::tls::ciphers tls1.3 1]] \n]
     } -result {missing {} unexpected {}}
 
 # Test protocol specific ciphers
 
 
-test CiphersSpecific-4.1 {SSL2} -constraints {ssl2} -body {
+test Ciphers_Protocol_Specific-4.1 {SSL2} -constraints {ssl2} -body {
 	lcompare [exec_get ":" ciphers -ssl2 -s] [::tls::ciphers ssl2 0 1]
     } -result {missing {} unexpected {}}
 
-test CiphersSpecific-4.2 {SSL3} -constraints {ssl3} -body {
+test Ciphers_Protocol_Specific-4.2 {SSL3} -constraints {ssl3} -body {
 	lcompare [exec_get ":" ciphers -ssl3 -s] [::tls::ciphers ssl3 0 1]
     } -result {missing {} unexpected {}}
 
-test CiphersSpecific-4.3 {TLS1} -constraints {tls1} -body {
+test Ciphers_Protocol_Specific-4.3 {TLS1.0} -constraints {tls1} -body {
 	lcompare [exec_get ":" ciphers -tls1 -s] [::tls::ciphers tls1 0 1]
     } -result {missing {} unexpected {}}
 
-test CiphersSpecific-4.4 {TLS1.1} -constraints {tls1.1} -body {
+test Ciphers_Protocol_Specific-4.4 {TLS1.1} -constraints {tls1.1} -body {
 	lcompare [exec_get ":" ciphers -tls1_1 -s] [::tls::ciphers tls1.1 0 1]
     } -result {missing {} unexpected {}}
 
-test CiphersSpecific-4.5 {TLS1.2} -constraints {tls1.2} -body {
+test Ciphers_Protocol_Specific-4.5 {TLS1.2} -constraints {tls1.2} -body {
 	lcompare [exec_get ":" ciphers -tls1_2 -s] [::tls::ciphers tls1.2 0 1]
     } -result {missing {} unexpected {}}
 
-test CiphersSpecific-4.6 {TLS1.3} -constraints {tls1.3} -body {
+test Ciphers_Protocol_Specific-4.6 {TLS1.3} -constraints {tls1.3} -body {
 	lcompare [exec_get ":" ciphers -tls1_3 -s] [::tls::ciphers tls1.3 0 1]
     } -result {missing {} unexpected {}}
 
