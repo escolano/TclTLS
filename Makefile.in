@@ -389,18 +389,7 @@ dist: dist-clean $(srcdir)/manifest.uuid
 		$(srcdir)/license.terms $(srcdir)/manifest.uuid \
 		$(srcdir)/README.txt $(srcdir)/pkgIndex.tcl.in $(DIST_DIR)/
 
-	# TEA files
-	$(INSTALL_DATA_DIR) $(DIST_DIR)/tclconfig
-	$(DIST_INSTALL_DATA) $(srcdir)/tclconfig/README.txt \
-		$(srcdir)/tclconfig/tcl.m4 $(srcdir)/tclconfig/install-sh \
-		$(srcdir)/tclconfig/license.terms $(DIST_DIR)/tclconfig/
-
-	$(INSTALL_DATA_DIR) $(DIST_DIR)/win
-	$(DIST_INSTALL_DATA) \
-		$(srcdir)/win/README.txt $(srcdir)/win/*.vc \
-		$(srcdir)/win/nmakehlp.c $(srcdir)/win/*.in $(DIST_DIR)/win/
-
-	list='build demos doc generic library macosx tests unix'; \
+	list='build demos doc generic library tclconfig tests win'; \
 	for p in $$list; do \
 	    if test -d $(srcdir)/$$p ; then \
 		$(INSTALL_DATA_DIR) $(DIST_DIR)/$$p; \
