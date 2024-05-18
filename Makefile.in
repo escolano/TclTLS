@@ -160,7 +160,7 @@ PKG_CFLAGS	= @PKG_CFLAGS@
 DEFS		= @DEFS@ $(PKG_CFLAGS)
 
 # Move pkgIndex.tcl to 'BINARIES' var if it is generated in the Makefile
-CONFIG_CLEAN_FILES = Makefile pkgIndex.tcl generic/tls.tcl.h tlsUuid.h
+CONFIG_CLEAN_FILES = Makefile
 CLEANFILES	= @CLEANFILES@
 
 CPPFLAGS	= @CPPFLAGS@
@@ -398,7 +398,7 @@ dist: dist-clean $(srcdir)/manifest.uuid
 	done
 
 	(cd $(DIST_ROOT); $(COMPRESS);)
-	mv $(PKG_DIR).tar.gz $(top_builddir)
+	mv $(DIST_ROOT)/$(PKG_DIR).tar.gz $(top_builddir)
 	cd $(top_builddir)
 
 #========================================================================
@@ -418,7 +418,7 @@ clean:
 distclean: clean
 	-rm -f *.tab.c
 	-rm -f $(CONFIG_CLEAN_FILES)
-	-rm -f config.cache config.log config.status
+	-rm -f config.cache config.log config.status configure~
 	-rm -fR autom4te.cache
 
 #========================================================================
@@ -458,6 +458,9 @@ install-lib-binaries: binaries
 	@if test "x$(SHARED_BUILD)" = "x1"; then \
 	    echo " Install pkgIndex.tcl $(DESTDIR)$(pkglibdir)"; \
 	    $(INSTALL_DATA) pkgIndex.tcl "$(DESTDIR)$(pkglibdir)"; \
+	fi
+	@if test -f "$(srcdir)/tlsConfig.sh"; then \
+	    $(INSTALL_DATA) $(srcdir)/tlsConfig.sh $(DESTDIR)$(libdir); \
 	fi
 
 #========================================================================
