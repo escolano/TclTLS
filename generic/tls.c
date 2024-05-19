@@ -1448,8 +1448,6 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /*
      * We need to make sure that the channel works in binary (for the
      * encryption not to get goofed up).
-     * We only want to adjust the buffering in pre-v2 channels, where
-     * each channel in the stack maintained its own buffers.
      */
     Tcl_DStringInit(&upperChannelTranslation);
     Tcl_DStringInit(&upperChannelBlocking);
@@ -1470,6 +1468,10 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	 * No use of Tcl_EventuallyFree because no possible Tcl_Preserve.
 	 */
 	Tls_Free((tls_free_type *) statePtr);
+	Tcl_DStringFree(&upperChannelTranslation);
+	Tcl_DStringFree(&upperChannelEncoding);
+	Tcl_DStringFree(&upperChannelEOFChar);
+	Tcl_DStringFree(&upperChannelBlocking);
 	return TCL_ERROR;
     }
 
@@ -1702,11 +1704,8 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 	return TCL_ERROR;
     }
 
-    if (Tcl_UnstackChannel(interp, chan) == TCL_ERROR) {
-	return TCL_ERROR;
-    }
-
-    return TCL_OK;
+    /* Flush and pop channel from stack */
+    return Tcl_UnstackChannel(interp, chan);
 }
 
 /*
