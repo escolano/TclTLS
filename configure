@@ -5581,6 +5581,7 @@ printf "%s\n" "$ac_cv_c_bigendian" >&6; }
 
 
 #--------------------------------------------------------------------
+#
 # You can add more files to clean if your extension creates any extra
 # files by extending CLEANFILES.
 # Add pkgIndex.tcl if it is generated in the Makefile instead of ./configure
@@ -9286,7 +9287,7 @@ fi
 if test ${enable_tls1+y}
 then :
   enableval=$enable_tls1;
-		if test "${enableval}" = "no"; then
+		if test "${enableval}" == "no"; then
 
 printf "%s\n" "#define NO_TLS1 1" >>confdefs.h
 
@@ -9303,7 +9304,7 @@ fi
 if test ${enable_tls1_1+y}
 then :
   enableval=$enable_tls1_1;
-		if test "${enableval}" = "no"; then
+		if test "${enableval}" == "no"; then
 
 printf "%s\n" "#define NO_TLS1_1 1" >>confdefs.h
 
@@ -9320,7 +9321,7 @@ fi
 if test ${enable_tls1_2+y}
 then :
   enableval=$enable_tls1_2;
-		if test "${enableval}" = "no"; then
+		if test "${enableval}" == "no"; then
 
 printf "%s\n" "#define NO_TLS1_2 1" >>confdefs.h
 
@@ -9337,7 +9338,7 @@ fi
 if test ${enable_tls1_3+y}
 then :
   enableval=$enable_tls1_3;
-		if test "${enableval}" = "no"; then
+		if test "${enableval}" == "no"; then
 
 printf "%s\n" "#define NO_TLS1_3 1" >>confdefs.h
 
@@ -9364,7 +9365,7 @@ else case e in #(
 esac
 fi
 
-	if test "$tcltls_ssl_fastpath" = 'yes'; then
+	if test "$tcltls_ssl_fastpath" == 'yes'; then
 
 printf "%s\n" "#define TCLTLS_SSL_USE_FASTPATH 1" >>confdefs.h
 
@@ -9388,8 +9389,8 @@ else case e in #(
 esac
 fi
 
-	if test "$tcltls_enable_hardening" = 'yes'; then
-		if test "$GCC" = 'yes' -o "$CC" = 'clang'; then
+	if test "$tcltls_enable_hardening" == 'yes'; then
+		if test "$GCC" == 'yes' -o "$CC" = 'clang'; then
 
     PKG_CFLAGS="$PKG_CFLAGS -fstack-protector-all"
 
@@ -9457,7 +9458,7 @@ then :
 
 else case e in #(
   e)
-			if test ! -z "$openssldir"; then
+			if test -n "$openssldir"; then
 				opensslincludedir="${openssldir}/include"
 			else
 				opensslincludedir=''
@@ -9472,7 +9473,7 @@ printf %s "checking for OpenSSL include directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslincludedir" >&5
 printf "%s\n" "$opensslincludedir" >&6; }
 
-		if test ! -z "$opensslincludedir"; then
+		if test -n "$opensslincludedir"; then
 		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
@@ -9498,7 +9499,7 @@ then :
 
 else case e in #(
   e)
-			if test ! -z "$openssldir"; then
+			if test -n "$openssldir"; then
 				if test "$do64bit" == 'yes'; then
 					openssllibdir="$openssldir/lib64"
 				else
@@ -9517,16 +9518,10 @@ printf %s "checking for OpenSSL lib directory... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $openssllibdir" >&5
 printf "%s\n" "$openssllibdir" >&6; }
 
-		if test ! -z "$openssllibdir"; then
+		SSL_LIBS_PATH=''
+	if test -n "$openssllibdir"; then
 		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
-			if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
-				TCLTLS_SSL_LIBS="-L$openssllibdir -lcrypto -lssl"
-			#else
-				# Linux and Solaris
-				#TCLTLS_SSL_LIBS="-Wl,-Bstatic `$PKG_CONFIG --static --libs crypto ssl` -Wl,-Bdynamic"
-				# HPUX
-				# -Wl,-a,archive ... -Wl,-a,shared_archive
-			fi
+			SSL_LIBS_PATH="-L$openssllibdir"
 		else
 			as_fn_error $? "Unable to locate libssl${SHLIB_SUFFIX}" "$LINENO" 5
 		fi
@@ -9556,13 +9551,6 @@ printf %s "checking for OpenSSL pkgconfig... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslpkgconfigdir" >&5
 printf "%s\n" "$opensslpkgconfigdir" >&6; }
 
-
-	# Use Package Config tool to get config
-	pkgConfigExtraArgs=''
-	if test "${SHARED_BUILD}" == 0 -o "$TCLEXT_TLS_STATIC_SSL" = 'yes'; then
-		pkgConfigExtraArgs='--static'
-	fi
-
 		if test -n "${PKG_CONFIG}"; then
 				PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
 		if test -n "${opensslpkgconfigdir}"; then
@@ -9573,8 +9561,17 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 			PKG_CONFIG_PATH="${opensslpkgconfigdir}:${PKG_CONFIG_PATH}"
 			export PKG_CONFIG_PATH
 		fi
+
+		pkgConfigExtraArgs=''
+		if test "${SHARED_BUILD}" == "0" -o "$TCLEXT_TLS_STATIC_SSL" == 'yes'; then
+			pkgConfigExtraArgs='--static'
+		fi
+
 		if test -z "$TCLTLS_SSL_LIBS"; then
-			TCLTLS_SSL_LIBS="`"${PKG_CONFIG}" openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+			TCLTLS_SSL_LIBS="$SSL_LIBS_PATH `${PKG_CONFIG} openssl --libs $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
+			if test "${TCLEXT_TLS_STATIC_SSL}" == 'yes'; then
+				TCLTLS_SSL_LIBS="-Wl,-Bstatic $TCLTLS_SSL_LIBS -Wl,-Bdynamic"
+			fi
 		fi
 		if test -z "$TCLTLS_SSL_CFLAGS"; then
 			TCLTLS_SSL_CFLAGS="`"${PKG_CONFIG}" openssl --cflags-only-other $pkgConfigExtraArgs`" || as_fn_error $? "Unable to get OpenSSL Configuration" "$LINENO" 5
@@ -9585,16 +9582,19 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
 
-
-		if test -z "$TCLTLS_SSL_LIBS"; then
-		TCLTLS_SSL_LIBS="-lcrypto -lssl"
-	fi
-	if test -z "$TCLTLS_SSL_CFLAGS"; then
+		if test -z "$TCLTLS_SSL_CFLAGS"; then
 		TCLTLS_SSL_CFLAGS=""
 	fi
 	if test -z "$TCLTLS_SSL_INCLUDES"; then
 		if test -f /usr/include/openssl/ssl.h; then
 			TCLTLS_SSL_INCLUDES="-I/usr/include"
+		fi
+	fi
+	if test -z "$TCLTLS_SSL_LIBS"; then
+		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+		    TCLTLS_SSL_LIBS="$SSL_LIBS_PATH -lssl -lcrypto"
+		else
+		    TCLTLS_SSL_LIBS="$SSL_LIBS_PATH -Wl,-Bstatic -lssl -lcrypto -Wl,-Bdynamic"
 		fi
 	fi
 
