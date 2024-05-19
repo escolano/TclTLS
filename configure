@@ -5581,7 +5581,6 @@ printf "%s\n" "$ac_cv_c_bigendian" >&6; }
 
 
 #--------------------------------------------------------------------
-#
 # You can add more files to clean if your extension creates any extra
 # files by extending CLEANFILES.
 # Add pkgIndex.tcl if it is generated in the Makefile instead of ./configure
@@ -5596,8 +5595,6 @@ printf "%s\n" "$ac_cv_c_bigendian" >&6; }
 
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    printf "%s\n" "#define BUILD_tls 1" >>confdefs.h
-
 
     CLEANFILES="$CLEANFILES *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
 
@@ -9474,16 +9471,14 @@ printf %s "checking for OpenSSL include directory... " >&6; }
 printf "%s\n" "$opensslincludedir" >&6; }
 
 		if test -n "$opensslincludedir"; then
+		{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
+printf %s "checking for ssl.h... " >&6; }
 		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
-printf %s "checking for ssl.h... " >&6; }
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
 		else
-			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for ssl.h" >&5
-printf %s "checking for ssl.h... " >&6; }
 			{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
 			as_fn_error $? "Unable to locate ssl.h" "$LINENO" 5
@@ -9500,7 +9495,7 @@ then :
 else case e in #(
   e)
 			if test -n "$openssldir"; then
-				if test "$do64bit" == 'yes'; then
+				if test "$do64bit" == 'yes' -a -d $openssldir/lib64; then
 					openssllibdir="$openssldir/lib64"
 				else
 					openssllibdir="$openssldir/lib"
@@ -9520,10 +9515,16 @@ printf "%s\n" "$openssllibdir" >&6; }
 
 		SSL_LIBS_PATH=''
 	if test -n "$openssllibdir"; then
-		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
+		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+			LIBEXT=${SHLIB_SUFFIX}
+		else
+			LIBEXT='.a'
+		fi
+
+		if test -f "$openssllibdir/libssl${LIBEXT}"; then
 			SSL_LIBS_PATH="-L$openssllibdir"
 		else
-			as_fn_error $? "Unable to locate libssl${SHLIB_SUFFIX}" "$LINENO" 5
+			as_fn_error $? "Unable to locate libssl${LIBEXT}" "$LINENO" 5
 		fi
 	fi
 
@@ -9551,7 +9552,9 @@ printf %s "checking for OpenSSL pkgconfig... " >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $opensslpkgconfigdir" >&5
 printf "%s\n" "$opensslpkgconfigdir" >&6; }
 
-		if test -n "${PKG_CONFIG}"; then
+		USE_PKG_CONFIG=`"${PKG_CONFIG}" --list-package-names | grep openssl`
+
+		if test -n "${PKG_CONFIG}" -a -n "${USE_PKG_CONFIG}"; then
 				PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
 		if test -n "${opensslpkgconfigdir}"; then
 			if ! test -f "${opensslpkgconfigdir}/openssl.pc"; then
@@ -9594,7 +9597,9 @@ printf "%s\n" "$opensslpkgconfigdir" >&6; }
 		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
 		    TCLTLS_SSL_LIBS="$SSL_LIBS_PATH -lssl -lcrypto"
 		else
+		    # Linux and Solaris
 		    TCLTLS_SSL_LIBS="$SSL_LIBS_PATH -Wl,-Bstatic -lssl -lcrypto -Wl,-Bdynamic"
+		    # HPUX: -Wl,-a,archive ... -Wl,-a,shared_archive
 		fi
 	fi
 

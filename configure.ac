@@ -88,7 +88,6 @@ TEA_ADD_TCL_SOURCES([library/tls.tcl license.terms README.txt])
 TEA_ADD_CLEANFILES([pkgIndex.tcl generic/tls.tcl.h tlsUuid.h])
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_tls)
     TEA_ADD_CLEANFILES([*.lib *.dll *.exp *.ilk *.pdb vc*.pch])
 else
     TEA_ADD_CLEANFILES([*.so])

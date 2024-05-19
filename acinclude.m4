@@ -9,6 +9,7 @@ builtin(include,tclconfig/tcl.m4)
 #
 
 AC_DEFUN([TCLTLS_SSL_OPENSSL], [
+	dnl Determine if pkg-config tool is available
 	AC_CHECK_TOOL([PKG_CONFIG], [pkg-config])
 
 	dnl Disable support for TLS 1.0 protocol
@@ -119,15 +120,14 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL include directory])
 	AC_MSG_RESULT($opensslincludedir)
 
-	dnl Set SSL include vars
+	dnl Set SSL include variables
 	if test -n "$opensslincludedir"; then
+		AC_MSG_CHECKING([for ssl.h])
 		if test -f "$opensslincludedir/openssl/ssl.h"; then
 			TCLTLS_SSL_CFLAGS="-I$opensslincludedir"
 			TCLTLS_SSL_INCLUDES="-I$opensslincludedir"
-			AC_MSG_CHECKING([for ssl.h])
 			AC_MSG_RESULT([yes])
 		else
-			AC_MSG_CHECKING([for ssl.h])
 			AC_MSG_RESULT([no])
 			AC_MSG_ERROR([Unable to locate ssl.h])
 		fi
@@ -141,7 +141,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 			openssllibdir="$withval"
 		], [
 			if test -n "$openssldir"; then
-				if test "$do64bit" == 'yes'; then
+				if test "$do64bit" == 'yes' -a -d $openssldir/lib64; then
 					openssllibdir="$openssldir/lib64"
 				else
 					openssllibdir="$openssldir/lib"
@@ -154,13 +154,19 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL lib directory])
 	AC_MSG_RESULT($openssllibdir)
 
-	dnl Set SSL lib vars
+	dnl Set SSL lib variables
 	SSL_LIBS_PATH=''
 	if test -n "$openssllibdir"; then
-		if test -f "$openssllibdir/libssl${SHLIB_SUFFIX}"; then
+		if test "${TCLEXT_TLS_STATIC_SSL}" == 'no'; then
+			LIBEXT=${SHLIB_SUFFIX}
+		else
+			LIBEXT='.a'
+		fi
+
+		if test -f "$openssllibdir/libssl${LIBEXT}"; then
 			SSL_LIBS_PATH="-L$openssllibdir"
 		else
-			AC_MSG_ERROR([Unable to locate libssl${SHLIB_SUFFIX}])
+			AC_MSG_ERROR([Unable to locate libssl${LIBEXT}])
 		fi
 	fi
 
@@ -181,8 +187,11 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	AC_MSG_CHECKING([for OpenSSL pkgconfig])
 	AC_MSG_RESULT($opensslpkgconfigdir)
 
+	dnl Check if OpenSSL is available
+	USE_PKG_CONFIG=`"${PKG_CONFIG}" --list-package-names | grep openssl`
+
 	dnl Use pkg-config to find the library names
-	if test -n "${PKG_CONFIG}"; then
+	if test -n "${PKG_CONFIG}" -a -n "${USE_PKG_CONFIG}"; then
 		dnl Temporarily update PKG_CONFIG_PATH
 		PKG_CONFIG_PATH_SAVE="${PKG_CONFIG_PATH}"
 		if test -n "${opensslpkgconfigdir}"; then
@@ -214,7 +223,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 		PKG_CONFIG_PATH="${PKG_CONFIG_PATH_SAVE}"
 	fi
 
-	dnl Fallback settings for OpenSSL includes and libs
+	dnl Use fall-back settings for OpenSSL include and library paths
 	if test -z "$TCLTLS_SSL_CFLAGS"; then
 		TCLTLS_SSL_CFLAGS=""
 	fi
