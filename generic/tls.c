@@ -1679,7 +1679,9 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
  */
 static int
 UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
-    Tcl_Channel chan;		/* The channel to set a mode on. */
+    Tcl_Channel chan, child;	/* The stacked and underlying channels */
+    Tcl_DString upperChannelTranslation, upperChannelBlocking, upperChannelEncoding, upperChannelEOFChar;
+    int res = TCL_OK;
     (void) clientData;
 
     dprintf("Called");
@@ -1689,6 +1691,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 	return TCL_ERROR;
     }
 
+    /* Validate channel name */
     chan = Tcl_GetChannel(interp, Tcl_GetString(objv[1]), NULL);
     if (chan == (Tcl_Channel) NULL) {
 	return TCL_ERROR;
@@ -1696,16 +1699,48 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 
     /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
+    child = Tcl_GetStackedChannel(chan);
 
-    if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
+    /* Verify is a stacked channel */
+    if (child == NULL) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", (char *) NULL);
+		"\": not a stacked channel", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *) NULL);
 	return TCL_ERROR;
     }
 
-    /* Flush and pop channel from stack */
-    return Tcl_UnstackChannel(interp, chan);
+    /* Flush any pending data */
+    if (Tcl_Flush(chan) != TCL_OK) {
+	return TCL_ERROR;
+    }
+
+    Tcl_DStringInit(&upperChannelTranslation);
+    Tcl_DStringInit(&upperChannelBlocking);
+    Tcl_DStringInit(&upperChannelEOFChar);
+    Tcl_DStringInit(&upperChannelEncoding);
+
+    /* Get current config - EOL translation, encoding and buffering options are shared between all channels in the stack */
+    Tcl_GetChannelOption(interp, chan, "-blocking", &upperChannelBlocking);
+    Tcl_GetChannelOption(interp, chan, "-encoding", &upperChannelEncoding);
+    Tcl_GetChannelOption(interp, chan, "-eofchar", &upperChannelEOFChar);
+    Tcl_GetChannelOption(interp, chan, "-translation", &upperChannelTranslation);
+
+    /* Unstack the channel and restore underlying channel config */
+    if (Tcl_UnstackChannel(interp, chan) == TCL_OK) {
+	Tcl_SetChannelOption(interp, child, "-encoding", Tcl_DStringValue(&upperChannelEncoding));
+	Tcl_SetChannelOption(interp, child, "-eofchar", Tcl_DStringValue(&upperChannelEOFChar));
+	Tcl_SetChannelOption(interp, child, "-translation", Tcl_DStringValue(&upperChannelTranslation));
+	Tcl_SetChannelOption(interp, child, "-blocking", Tcl_DStringValue(&upperChannelBlocking));
+    } else {
+	res = TCL_ERROR;
+    }
+
+    /* Clean-up */
+    Tcl_DStringFree(&upperChannelTranslation);
+    Tcl_DStringFree(&upperChannelEncoding);
+    Tcl_DStringFree(&upperChannelEOFChar);
+    Tcl_DStringFree(&upperChannelBlocking);
+    return res;
 }
 
 /*
@@ -2909,6 +2944,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
     Tcl_CreateObjCommand(interp, "::tls::handshake", HandshakeObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::import", ImportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::unimport", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::unstack", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::status", StatusObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::version", VersionObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
     Tcl_CreateObjCommand(interp, "::tls::misc", MiscObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
