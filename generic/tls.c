@@ -429,7 +429,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
  *-------------------------------------------------------------------
  */
 void
-Tls_Error(State *statePtr, char *msg) {
+Tls_Error(State *statePtr, const char *msg) {
     Tcl_Interp *interp	= statePtr->interp;
     Tcl_Obj *cmdPtr, *listPtr;
     unsigned long err;
