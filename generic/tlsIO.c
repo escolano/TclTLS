@@ -385,7 +385,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 		*errorCodePtr = 0;
 		bytesRead = 0;
 		Tls_Error(statePtr, "EOF reached");
-	    }    
+	    }
 #endif
 	    break;
 
