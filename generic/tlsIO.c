@@ -299,33 +299,38 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
     int bytesRead;
-    int tlsConnect;
     int err;
 
     *errorCodePtr = 0;
 
     dprintf("BIO_read(%d)", bufSize);
 
+    /* Skip if user verify callback is still running */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
-	/* don't process any bytes while verify callback is running */
 	dprintf("Callback is running, reading 0 bytes");
 	return 0;
     }
 
-    dprintf("Calling Tls_WaitForConnect");
-    tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
-    if (tlsConnect < 0) {
-	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
-	Tls_Error(statePtr, strerror(*errorCodePtr));
+    /* If not initialized, do connect */
+    if (statePtr->flags & TLS_TCL_INIT) {
+	int tlsConnect;
 
-	bytesRead = -1;
-	if (*errorCodePtr == ECONNRESET) {
-	    dprintf("Got connection reset");
-	    /* Soft EOF */
-	    *errorCodePtr = 0;
-	    bytesRead = 0;
+	dprintf("Calling Tls_WaitForConnect");
+
+	tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
+	if (tlsConnect < 0) {
+	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	    Tls_Error(statePtr, strerror(*errorCodePtr));
+
+	    bytesRead = -1;
+	    if (*errorCodePtr == ECONNRESET) {
+		dprintf("Got connection reset");
+		/* Soft EOF */
+		*errorCodePtr = 0;
+		bytesRead = 0;
+	    }
+	    return bytesRead;
 	}
-	return bytesRead;
     }
 
     /*
@@ -457,13 +462,13 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
     int written, err;
-    int tlsConnect;
 
     *errorCodePtr = 0;
 
     dprintf("BIO_write(%p, %d)", (void *) statePtr, toWrite);
     dprintBuffer(buf, toWrite);
 
+    /* Skip if user verify callback is still running */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
 	dprintf("Don't process output while callbacks are running");
 	written = -1;
@@ -471,20 +476,26 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	return -1;
     }
 
-    dprintf("Calling Tls_WaitForConnect");
-    tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 1);
-    if (tlsConnect < 0) {
-	dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
-	Tls_Error(statePtr, strerror(*errorCodePtr));
+    /* If not initialized, do connect */
+    if (statePtr->flags & TLS_TCL_INIT) {
+	int tlsConnect;
 
-	written = -1;
-	if (*errorCodePtr == ECONNRESET) {
-	    dprintf("Got connection reset");
-	    /* Soft EOF */
-	    *errorCodePtr = 0;
-	    written = 0;
+	dprintf("Calling Tls_WaitForConnect");
+
+	tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 1);
+	if (tlsConnect < 0) {
+	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
+	    Tls_Error(statePtr, strerror(*errorCodePtr));
+
+	    written = -1;
+	    if (*errorCodePtr == ECONNRESET) {
+		dprintf("Got connection reset");
+		/* Soft EOF */
+		*errorCodePtr = 0;
+		written = 0;
+	    }
+	    return written;
 	}
-	return written;
     }
 
     if (toWrite == 0) {
@@ -889,7 +900,7 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 				 * OR-ed combination of TCL_READABLE or TCL_WRITABLE */
 {
     State *statePtr = (State *) instanceData;
-    int errorCode;
+    int errorCode = 0;
 
     dprintf("Called");
 
@@ -910,22 +921,25 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 	statePtr->timer = (Tcl_TimerToken) NULL;
     }
 
+    /* Skip if user verify callback is still running */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
-	dprintf("Returning 0 due to callback");
+	dprintf("Callback is on-going, returning failed");
 	return 0;
     }
 
-    dprintf("Calling Tls_WaitForConnect");
-    errorCode = 0;
-    if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
-	Tls_Error(statePtr, strerror(errorCode));
-	if (errorCode == EAGAIN) {
-	    dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning 0");
+    /* If not initialized, do connect */
+    if (statePtr->flags & TLS_TCL_INIT) {
+	dprintf("Calling Tls_WaitForConnect");
+	if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
+	    Tls_Error(statePtr, strerror(errorCode));
+	    if (errorCode == EAGAIN) {
+		dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning failed");
 
-	    return 0;
+		return 0;
+	    }
+
+	    dprintf("Tls_WaitForConnect returned an error");
 	}
-
-	dprintf("Tls_WaitForConnect returned an error");
     }
 
     dprintf("Returning %i", mask);
