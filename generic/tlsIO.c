@@ -21,11 +21,6 @@
 #include <errno.h>
 
 /*
- * Forward declarations
- */
-static void TlsChannelHandlerTimer(ClientData clientData);
-
-/*
  *-------------------------------------------------------------------
  *
  * TlsBlockModeProc --
@@ -209,11 +204,17 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    *errorCodePtr = 0;
 	    break;
 
-	case SSL_ERROR_ZERO_RETURN:
-	    /* The TLS/SSL peer has closed the connection for writing by sending the close_notify alert */
-	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
-	    *errorCodePtr = EINVAL;
-	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
+	case SSL_ERROR_SSL:
+	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
+	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
+	    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
+		Tls_Error(statePtr, X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
+	    }
+	    if (backingError != 0) {
+		Tls_Error(statePtr, ERR_reason_error_string(backingError));
+	    }
+	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
+	    *errorCodePtr = ECONNABORTED;
 	    return -1;
 
 	case SSL_ERROR_SYSCALL:
@@ -245,17 +246,11 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
 	    return -1;
 
-	case SSL_ERROR_SSL:
-	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
-	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
-	    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
-		Tls_Error(statePtr, X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
-	    }
-	    if (backingError != 0) {
-		Tls_Error(statePtr, ERR_reason_error_string(backingError));
-	    }
-	    statePtr->flags |= TLS_TCL_HANDSHAKE_FAILED;
-	    *errorCodePtr = ECONNABORTED;
+	case SSL_ERROR_ZERO_RETURN:
+	    /* The TLS/SSL peer has closed the connection for writing by sending the close_notify alert */
+	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
+	    *errorCodePtr = EINVAL;
+	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    return -1;
 
 	case SSL_ERROR_WANT_READ:
@@ -390,6 +385,13 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 #endif
 	    break;
 
+	case SSL_ERROR_WANT_READ:
+	    dprintf("Got SSL_ERROR_WANT_READ, mapping this to EAGAIN");
+	    bytesRead = -1;
+	    *errorCodePtr = EAGAIN;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
+	    break;
+
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
 	    dprintf("SSL_ERROR_SYSCALL");
@@ -420,13 +422,6 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    bytesRead = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
-	    break;
-
-	case SSL_ERROR_WANT_READ:
-	    dprintf("Got SSL_ERROR_WANT_READ, mapping this to EAGAIN");
-	    bytesRead = -1;
-	    *errorCodePtr = EAGAIN;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
 
 	default:
@@ -536,11 +531,18 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    }
 	    break;
 
-	case SSL_ERROR_WANT_WRITE:
-	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
-	    *errorCodePtr = EAGAIN;
+	case SSL_ERROR_SSL:
+	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
+	    dprintf("SSL error, indicating that the connection has been aborted");
+	    if (backingError != 0) {
+		Tls_Error(statePtr, ERR_reason_error_string(backingError));
+	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
+		Tls_Error(statePtr, X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
+	    } else {
+		Tls_Error(statePtr, "Unknown SSL error");
+	    }
+	    *errorCodePtr = ECONNABORTED;
 	    written = -1;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    break;
 
 	case SSL_ERROR_WANT_READ:
@@ -548,16 +550,16 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
 
+	case SSL_ERROR_WANT_WRITE:
+	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
+	    *errorCodePtr = EAGAIN;
+	    written = -1;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
+	    break;
+
 	case SSL_ERROR_WANT_X509_LOOKUP:
 	    dprintf(" write X BLOCK");
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
-	    break;
-
-	case SSL_ERROR_ZERO_RETURN:
-	    dprintf(" closed");
-	    written = 0;
-	    *errorCodePtr = 0;
-	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    break;
 
 	case SSL_ERROR_SYSCALL:
@@ -584,18 +586,11 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    }
 	    break;
 
-	case SSL_ERROR_SSL:
-	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
-	    dprintf("SSL error, indicating that the connection has been aborted");
-	    if (backingError != 0) {
-		Tls_Error(statePtr, ERR_reason_error_string(backingError));
-	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
-		Tls_Error(statePtr, X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
-	    } else {
-		Tls_Error(statePtr, "Unknown SSL error");
-	    }
-	    *errorCodePtr = ECONNABORTED;
-	    written = -1;
+	case SSL_ERROR_ZERO_RETURN:
+	    dprintf(" closed");
+	    written = 0;
+	    *errorCodePtr = 0;
+	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    break;
 
 	default:
@@ -606,6 +601,28 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
     dprintf("Output(%d) -> %d", toWrite, written);
     return written;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
+ * Tls_GetParent --
+ *
+ *    Get parent for stacked channel.
+ *
+ * Results:
+ *    Tcl_Channel or NULL if none.
+ *
+ *-------------------------------------------------------------------
+ */
+Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
+    dprintf("Requested to get parent of channel %p", statePtr->self);
+
+    if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
+	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
+	return NULL;
+    }
+    return Tcl_GetStackedChannel(statePtr->self);
 }
 
 /*
@@ -696,6 +713,52 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
      * Request for a specific option has to fail, we don't have any.
      */
     return Tcl_BadChannelOption(interp, optionName, "");
+}
+
+/*
+ *------------------------------------------------------*
+ *
+ *    TlsChannelHandlerTimer --
+ *
+ *    ------------------------------------------------*
+ *    Called by the notifier (-> timer) to flush out
+ *    information waiting in channel buffers.
+ *    ------------------------------------------------*
+ *
+ *    Side effects:
+ *        As of 'TlsChannelHandler'.
+ *
+ *    Result:
+ *        None.
+ *
+ *------------------------------------------------------*
+ */
+static void TlsChannelHandlerTimer(ClientData clientData) {
+    State *statePtr = (State *) clientData;
+    int mask = 0;
+
+    dprintf("Called");
+
+    statePtr->timer = (Tcl_TimerToken) NULL;
+
+    if (BIO_wpending(statePtr->bio)) {
+	dprintf("[chan=%p] BIO writable", statePtr->self);
+
+	mask |= TCL_WRITABLE;
+    }
+
+    if (BIO_pending(statePtr->bio)) {
+	dprintf("[chan=%p] BIO readable", statePtr->self);
+
+	mask |= TCL_READABLE;
+    }
+
+    dprintf("Notifying ourselves");
+    Tcl_NotifyChannel(statePtr->self, mask);
+
+    dprintf("Returning");
+
+    return;
 }
 
 /*
@@ -868,62 +931,6 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
     dprintf("Returning %i", mask);
 
     return mask;
-}
-
-/*
- *------------------------------------------------------*
- *
- *    TlsChannelHandlerTimer --
- *
- *    ------------------------------------------------*
- *    Called by the notifier (-> timer) to flush out
- *    information waiting in channel buffers.
- *    ------------------------------------------------*
- *
- *    Side effects:
- *        As of 'TlsChannelHandler'.
- *
- *    Result:
- *        None.
- *
- *------------------------------------------------------*
- */
-static void TlsChannelHandlerTimer(ClientData clientData) {
-    State *statePtr = (State *) clientData;
-    int mask = 0;
-
-    dprintf("Called");
-
-    statePtr->timer = (Tcl_TimerToken) NULL;
-
-    if (BIO_wpending(statePtr->bio)) {
-	dprintf("[chan=%p] BIO writable", statePtr->self);
-
-	mask |= TCL_WRITABLE;
-    }
-
-    if (BIO_pending(statePtr->bio)) {
-	dprintf("[chan=%p] BIO readable", statePtr->self);
-
-	mask |= TCL_READABLE;
-    }
-
-    dprintf("Notifying ourselves");
-    Tcl_NotifyChannel(statePtr->self, mask);
-
-    dprintf("Returning");
-
-    return;
-}
-
-Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
-    dprintf("Requested to get parent of channel %p", statePtr->self);
-
-    if ((statePtr->flags & ~maskFlags) & TLS_TCL_FASTPATH) {
-	dprintf("Asked to get the parent channel while we are using FastPath -- returning NULL");
-	return NULL;
-    }
-    return Tcl_GetStackedChannel(statePtr->self);
 }
 
 /*
