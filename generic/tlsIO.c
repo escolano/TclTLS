@@ -362,6 +362,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 
     switch (err) {
 	case SSL_ERROR_NONE:
+	    dprintf("SSL_ERROR_NONE");
 	    dprintBuffer(buf, bytesRead);
 	    break;
 
@@ -391,6 +392,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
+	    dprintf("SSL_ERROR_SYSCALL");
 
 	    if (backingError == 0 && bytesRead == 0) {
 		/* Unexpected EOF from the peer for OpenSSL 1.1 */
@@ -528,6 +530,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
     switch (err) {
 	case SSL_ERROR_NONE:
+	    dprintf("SSL_ERROR_NONE");
 	    if (written < 0) {
 		written = 0;
 	    }
@@ -559,6 +562,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
+	    dprintf("SSL_ERROR_SYSCALL");
 
 	    if (backingError == 0 && written == 0) {
 		dprintf("EOF reached")
@@ -628,9 +632,10 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
     const char *optionValue)	/* Value for option. */
 {
     State *statePtr = (State *) instanceData;
-
     Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverSetOptionProc *setOptionProc;
+
+    dprintf("Called");
 
     setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(downChan));
     if (setOptionProc != NULL) {
@@ -673,9 +678,10 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
     Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
     State *statePtr = (State *) instanceData;
-
     Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverGetOptionProc *getOptionProc;
+
+    dprintf("Called");
 
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
     if (getOptionProc != NULL) {
@@ -821,6 +827,8 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 {
     State *statePtr = (State *) instanceData;
     int errorCode;
+
+    dprintf("Called");
 
     /*
      * An event occurred in the underlying channel.  This

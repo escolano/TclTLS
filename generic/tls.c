@@ -164,8 +164,9 @@ InfoCallback(const SSL *ssl, int where, int ret) {
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
 	return;
+    }
 
     if (where & SSL_CB_HANDSHAKE_START) {
 	major = "handshake";
@@ -239,8 +240,9 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 
     dprintf("Called");
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
 	return;
+    }
 
     switch(version) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L && !defined(NO_SSL2) && !defined(OPENSSL_NO_SSL2)
@@ -311,6 +313,8 @@ MessageCallback(int write_p, int version, int content_type, const void *buf, siz
 	(void)BIO_flush(bio);
 	BIO_free(bio);
    }
+
+    dprintf("Message direction=%d, ver=%s, type=%s, message=%s", write_p, ver, type, &buffer[0]);
 
     /* Create command to eval with fn, chan, direction, version, type, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
@@ -435,10 +439,11 @@ Tls_Error(State *statePtr, const char *msg) {
     unsigned long err;
     statePtr->err = msg;
 
-    dprintf("Called");
+    dprintf("Called with message %s", msg);
 
-    if (statePtr->callback == (Tcl_Obj*)NULL)
+    if (statePtr->callback == (Tcl_Obj*)NULL) {
 	return;
+    }
 
     /* Create command to eval with fn, chan, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
