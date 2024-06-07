@@ -2,7 +2,7 @@
 command,package require tls,,,,,,,,,
 command,,,,,,,,,,
 command,# Make sure path includes location of OpenSSL executable,,,,,,,,,
-command,"if {[info exists ::env(OPENSSL)]} {set ::env(path) [string cat [file join $::env(OPENSSL) bin] "";"" $::env(path)}",,,,,,,,,
+command,"if {[info exists ::env(OPENSSL)]} {set ::env(path) [string cat [file join $::env(OPENSSL) bin "";""] $::env(path)]}",,,,,,,,,
 command,,,,,,,,,,
 command,# Constraints,,,,,,,,,
 command,set protocols [list ssl2 ssl3 tls1 tls1.1 tls1.2 tls1.3],,,,,,,,,

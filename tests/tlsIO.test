@@ -1990,7 +1990,7 @@ test tlsIO-14.3 {test tls::unimport} {socket} {
 test tlsIO-14.4 {test tls::unimport} {socket} {
     # stdin can take different names as the "top" channel
     list [catch {tls::unimport stdin} msg] \
-	[string match {bad channel "*": not a TLS channel} $msg]
+	[string match {bad channel "*": not a stacked channel} $msg]
 } {1 1}
 test tlsIO-14.5 {test tls::unimport} {socket} {
     set len 0

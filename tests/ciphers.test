@@ -11,7 +11,7 @@ set auto_path [concat [list [file dirname [file dirname [info script]]]] $auto_p
 package require tls
 
 # Make sure path includes location of OpenSSL executable
-if {[info exists ::env(OPENSSL)]} {set ::env(path) [string cat [file join $::env(OPENSSL) bin] ";" $::env(path)}
+if {[info exists ::env(OPENSSL)]} {set ::env(path) [string cat [file join $::env(OPENSSL) bin ";"] $::env(path)]}
 
 # Constraints
 set protocols [list ssl2 ssl3 tls1 tls1.1 tls1.2 tls1.3]
