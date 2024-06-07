@@ -261,6 +261,9 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	case SSL_ERROR_WANT_ASYNC:
 	case SSL_ERROR_WANT_ASYNC_JOB:
 	case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+	case SSL_ERROR_WANT_RETRY_VERIFY:
+#endif
 	default:
 	    /* The operation did not complete and should be retried later. */
 	    dprintf("Operation did not complete, call function again later: %i", rc);
@@ -298,9 +301,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *errorCodePtr) {
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
-    int bytesRead;
-    int err;
-
+    int bytesRead, err;
     *errorCodePtr = 0;
 
     dprintf("BIO_read(%d)", bufSize);
@@ -345,23 +346,38 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
      * correctly.  Similar fix in TlsOutputProc. - hobbs
      */
     ERR_clear_error();
+    /* BIO_read, where 0 means EOF and -1 means error */
     bytesRead = BIO_read(statePtr->bio, buf, bufSize);
     dprintf("BIO_read -> %d", bytesRead);
 
     err = SSL_get_error(statePtr->ssl, bytesRead);
     backingError = ERR_get_error();
 
-#if 0
     if (bytesRead <= 0) {
 	if (BIO_should_retry(statePtr->bio)) {
-	    dprintf("I/O failed, will retry based on EAGAIN");
-	    *errorCodePtr = EAGAIN;
+	    dprintf("Read failed with code=%d, bytes read=%d: should retry", err, bytesRead);
+	    /* Some docs imply we should redo the BIO_read now */
+	} else {
+	    dprintf("Read failed with code=%d, bytes read=%d: error condition", err, bytesRead);
 	}
+	
+	/* These are the same as BIO_retry_type */
+	if (BIO_should_read(statePtr->bio)) {
+	    dprintf("BIO has insufficient data to read and return");
+	}
+	if (BIO_should_write(statePtr->bio)) {
+	    dprintf("BIO has pending data to write");
+	}
+	if (BIO_should_io_special(statePtr->bio)) {
+	    int reason = BIO_get_retry_reason(statePtr->bio);
+	    dprintf("BIO has some special condition other than read or write: code=%d", reason);
+	}
+	dprintf("BIO has pending data to write");
     }
-#endif
 
     switch (err) {
 	case SSL_ERROR_NONE:
+	    /* I/O operation completed */
 	    dprintf("SSL_ERROR_NONE");
 	    dprintBuffer(buf, bytesRead);
 	    break;
@@ -391,10 +407,27 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
 
 	case SSL_ERROR_WANT_READ:
+	    /* Op did not complete due to not enough data was available. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping this to EAGAIN");
 	    bytesRead = -1;
 	    *errorCodePtr = EAGAIN;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
+	    break;
+
+	case SSL_ERROR_WANT_WRITE:
+	    /* Op did not complete due to unable to sent all data to the BIO. Retry later. */
+	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping this to EAGAIN");
+	    bytesRead = -1;
+	    *errorCodePtr = EAGAIN;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
+	    break;
+
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	    /* Op didn't complete since callback set by SSL_CTX_set_client_cert_cb() asked to be called again */
+	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
+	    *errorCodePtr = EAGAIN;
+	    bytesRead = -1;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
 	    break;
 
 	case SSL_ERROR_SYSCALL:
@@ -423,10 +456,19 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
+	    /* Peer has closed the connection for writing by sending the close_notify alert. No more data can be read. */
 	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
 	    bytesRead = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
+	    break;
+
+	case SSL_ERROR_WANT_ASYNC:
+	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an async engine is still processing data */
+	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
+	    bytesRead = -1;
+	    *errorCodePtr = EAGAIN;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_ASYNC");
 	    break;
 
 	default:
@@ -462,7 +504,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     unsigned long backingError;
     State *statePtr = (State *) instanceData;
     int written, err;
-
     *errorCodePtr = 0;
 
     dprintf("BIO_write(%p, %d)", (void *) statePtr, toWrite);
@@ -528,14 +569,40 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
      * work correctly.  Similar fix in TlsInputProc. - hobbs
      */
     ERR_clear_error();
+    /* SSL_write will return 1 for success or 0 for failure */
     written = BIO_write(statePtr->bio, buf, toWrite);
     dprintf("BIO_write(%p, %d) -> [%d]", (void *) statePtr, toWrite, written);
 
     err = SSL_get_error(statePtr->ssl, written);
     backingError = ERR_get_error();
 
+    if (written <= 0) {
+	if (BIO_should_retry(statePtr->bio)) {
+	    dprintf("Write failed with code %d, bytes written=%d: should retry", err, written);
+	} else {
+	    dprintf("Write failed with code %d, bytes written=%d: error condition", err, written);
+	}
+	
+	/* These are the same as BIO_retry_type */
+	if (BIO_should_read(statePtr->bio)) {
+	    dprintf("BIO has insufficient data to read and return");
+	}
+	if (BIO_should_write(statePtr->bio)) {
+	    dprintf("BIO has pending data to write");
+	}
+	if (BIO_should_io_special(statePtr->bio)) {
+	    int reason = BIO_get_retry_reason(statePtr->bio);
+	    dprintf("BIO has some special condition other than read or write: code=%d", reason);
+	}
+	dprintf("BIO has pending data to write");
+
+    } else {
+	BIO_flush(statePtr->bio);
+    }
+
     switch (err) {
 	case SSL_ERROR_NONE:
+	    /* I/O operation completed */
 	    dprintf("SSL_ERROR_NONE");
 	    if (written < 0) {
 		written = 0;
@@ -557,11 +624,15 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
 
 	case SSL_ERROR_WANT_READ:
-	    dprintf(" write R BLOCK");
+	    /* Op did not complete due to not enough data was available. Retry later. */
+	    dprintf("Got SSL_ERROR_WANT_READ, mapping it to EAGAIN");
+	    *errorCodePtr = EAGAIN;
+	    written = -1;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
+	    /* Op did not complete due to unable to sent all data to the BIO. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
@@ -569,7 +640,10 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
-	    dprintf(" write X BLOCK");
+	    /* Op didn't complete since callback set by SSL_CTX_set_client_cert_cb() asked to be called again */
+	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
+	    *errorCodePtr = EAGAIN;
+	    written = -1;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
 	    break;
 
@@ -598,10 +672,19 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
+	    /* Peer has closed the connection for writing by sending the close_notify alert. No more data can be read. */
 	    dprintf(" closed");
 	    written = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
+	    break;
+
+	case SSL_ERROR_WANT_ASYNC:
+	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an async engine is still processing data */
+	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
+	    *errorCodePtr = EAGAIN;
+	    written = -1;
+	    Tls_Error(statePtr, "SSL_ERROR_WANT_ASYNC");
 	    break;
 
 	default:
@@ -798,6 +881,7 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
     Tcl_DriverWatchProc *watchProc;
 
     dprintf("TlsWatchProc(0x%x)", mask);
+    dprintFlags(statePtr);
 
     /* Pretend to be dead as long as the verify callback is running.
      * Otherwise that callback could be invoked recursively. */
@@ -805,8 +889,6 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 	dprintf("Callback is on-going, doing nothing");
 	return;
     }
-
-    dprintFlags(statePtr);
 
     downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
 
