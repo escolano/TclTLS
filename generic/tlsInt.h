@@ -175,6 +175,7 @@ typedef struct State {
 
 	int flags;		/* see State.flags above  */
 	int watchMask;		/* current WatchProc mask */
+	int want;		/* pending wants from OpenSSL */
 	int mode;		/* current mode of parent channel */
 
 	Tcl_Interp *interp;	/* interpreter in which this resides */

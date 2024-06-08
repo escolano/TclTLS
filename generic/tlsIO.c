@@ -178,8 +178,14 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
 	bioShouldRetry = 0;
 	if (err <= 0) {
-	    if (rc == SSL_ERROR_WANT_CONNECT || rc == SSL_ERROR_WANT_ACCEPT || rc == SSL_ERROR_WANT_READ || rc == SSL_ERROR_WANT_WRITE) {
+	    if (rc == SSL_ERROR_WANT_CONNECT || rc == SSL_ERROR_WANT_ACCEPT) {
 		bioShouldRetry = 1;
+	    } else if (rc == SSL_ERROR_WANT_READ) {
+		bioShouldRetry = 1;
+		statePtr->want = TCL_READABLE;
+	    } else if (rc == SSL_ERROR_WANT_WRITE) {
+		bioShouldRetry = 1;
+		statePtr->want = TCL_WRITABLE;
 	    } else if (BIO_should_retry(statePtr->bio)) {
 		bioShouldRetry = 1;
 	    } else if (rc == SSL_ERROR_SYSCALL && Tcl_GetErrno() == EAGAIN) {
@@ -421,16 +427,18 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	case SSL_ERROR_WANT_READ:
 	    /* Op did not complete due to not enough data was available. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping this to EAGAIN");
-	    bytesRead = -1;
 	    *errorCodePtr = EAGAIN;
+	    bytesRead = -1;
+	    statePtr->want = TCL_READABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
 	    /* Op did not complete due to unable to sent all data to the BIO. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping this to EAGAIN");
-	    bytesRead = -1;
 	    *errorCodePtr = EAGAIN;
+	    bytesRead = -1;
+	    statePtr->want = TCL_WRITABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    break;
 
@@ -640,6 +648,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
+	    statePtr->want = TCL_READABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    break;
 
@@ -648,6 +657,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
+	    statePtr->want = TCL_WRITABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    break;
 
@@ -835,7 +845,7 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
  */
 static void TlsChannelHandlerTimer(ClientData clientData) {
     State *statePtr = (State *) clientData;
-    int mask = 0;
+    int mask = statePtr->want; /* Init to SSL_ERROR_WANT_READ and SSL_ERROR_WANT_WRITE */
 
     dprintf("Called");
 
@@ -855,6 +865,7 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
 
     dprintf("Notifying ourselves");
     Tcl_NotifyChannel(statePtr->self, mask);
+    statePtr->want = 0;
 
     dprintf("Returning");
 
@@ -932,8 +943,8 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 	statePtr->timer = (Tcl_TimerToken) NULL;
     }
 
-    if ((mask & TCL_READABLE) &&
-	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) {
+    if (statePtr->want || ((mask & TCL_READABLE) &&
+	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0)))) {
 	/*
 	 * There is interest in readable events and we actually have
 	 * data waiting, so generate a timer to flush that.
