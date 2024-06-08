@@ -26,7 +26,7 @@
  * TlsBlockModeProc --
  *
  *    This procedure is invoked by the generic IO level
- *       to set blocking and nonblocking modes
+ *       to set channel to blocking or nonblocking mode.
  *
  * Results:
  *    0 if successful or POSIX error code if failed.
@@ -76,6 +76,16 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
     return 0;
 }
 
+/*
+ *-------------------------------------------------------------------
+ *
+ * TlsClose2Proc --
+ *
+ *    Similar to TlsCloseProc, but allows for separate close read and
+ *    write side of channel.
+ *
+ *-------------------------------------------------------------------
+ */
 static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
     int flags)			/* Flags to close read and/or write side of channel */
@@ -95,6 +105,8 @@ static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
  *
  * Tls_WaitForConnect --
  *
+ *    Perform connect (client) or accept (server)
+ *
  * Result:
  *    0 if successful, -1 if failed.
  *
@@ -105,7 +117,7 @@ static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
  */
 int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent) {
     unsigned long backingError;
-    int err, rc;
+    int err, rc = 0;
     int bioShouldRetry;
     *errorCodePtr = 0;
 
@@ -702,7 +714,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  *
  * Tls_GetParent --
  *
- *    Get parent for stacked channel.
+ *    Get parent channel for a stacked channel.
  *
  * Results:
  *    Tcl_Channel or NULL if none.
@@ -724,8 +736,7 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
  *
  * TlsSetOptionProc --
  *
- *    Sets an option value for a SSL socket based channel, or a
- *    list of all options and their values.
+ *    Sets an option value for a SSL socket based channel.
  *
  * Results:
  *    TCL_OK if successful or TCL_ERROR if failed.
@@ -751,11 +762,6 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
     setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(downChan));
     if (setOptionProc != NULL) {
 	return (*setOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
-    } else if (optionName == (char*) NULL) {
-	/*
-	 * Request is query for all options, this is ok.
-	 */
-	return TCL_OK;
     }
     /*
      * Request for a specific option has to fail, we don't have any.
@@ -860,7 +866,8 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
  *
  * TlsWatchProc --
  *
- *    Initialize the notifier to watch Tcl_Files from this channel.
+ *    Initialize the event notifier to watch for events of interest
+ *    from this channel.
  *
  * Results:
  *    None.
@@ -941,8 +948,8 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
  *
  * TlsGetHandleProc --
  *
- *    Called from Tcl_GetChannelFile to retrieve o/s file handler
- *    from the SSL socket based channel.
+ *    This procedure is invoked by the generic IO level to retrieve a
+ *    device-specific handle from the SSL socket based channel.
  *
  * Results:
  *    The appropriate Tcl_File handle or NULL if none.
@@ -966,8 +973,10 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
  *
  * TlsNotifyProc --
  *
- *    Handler called by Tcl to inform us of activity
- *    on the underlying channel.
+ *    This procedure is invoked by the generic IO level to notify the
+ *    channel that an event occurred. It is used by stacked channel
+ *    drivers that wish to be notified of events that occur on the
+ *    underlying (stacked) channel.
  *
  * Results:
  *    Type of event or 0 if failed
