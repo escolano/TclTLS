@@ -27,6 +27,9 @@
 #include "tlsUuid.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <openssl/ssl.h>
+#include <openssl/crypto.h>
+#include <openssl/opensslconf.h>
 #include <openssl/rsa.h>
 #include <openssl/safestack.h>
 
@@ -49,8 +52,6 @@ static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
 		Tcl_Size key_asn1_len, Tcl_Size cert_asn1_len, char *CApath, char *CAfile,
 		char *ciphers, char *ciphersuites, int level, char *DHparams);
 
-static int	TlsLibInit(int uninitialize);
-
 #define TLS_PROTO_SSL2		0x01
 #define TLS_PROTO_SSL3		0x02
 #define TLS_PROTO_TLS1		0x04
@@ -60,29 +61,6 @@ static int	TlsLibInit(int uninitialize);
 #define ENABLED(flag, mask)	(((flag) & (mask)) == (mask))
 
 #define SSLKEYLOGFILE		"SSLKEYLOGFILE"
-
-/*
- * Thread-Safe TLS Code
- */
-
-#ifdef TCL_THREADS
-#define OPENSSL_THREAD_DEFINES
-#include <openssl/opensslconf.h>
-
-#ifdef OPENSSL_THREADS
-#include <openssl/crypto.h>
-#include <openssl/ssl.h>
-
-/*
- * Threaded operation requires locking callbacks
- * Based from /crypto/cryptlib.c of OpenSSL and NSOpenSSL.
- */
-
-static Tcl_Mutex *locks = NULL;
-static int locksCount = 0;
-static Tcl_Mutex init_mx;
-#endif /* OPENSSL_THREADS */
-#endif /* TCL_THREADS */
 
 
 /********************/
@@ -2899,6 +2877,45 @@ BuildInfoCommand(Tcl_Interp* interp) {
     return TCL_OK;
 }
 
+/*
+ *------------------------------------------------------*
+ *
+ *	TlsLibInit --
+ *
+ *	------------------------------------------------*
+ *	Initializes SSL library once per application
+ *	------------------------------------------------*
+ *
+ *	Side effects:
+ *		initializes SSL library
+ *
+ *	Result:
+ *		none
+ *
+ *------------------------------------------------------*
+ */
+static int TlsLibInit() {
+    static int initialized = 0;
+
+    dprintf("Called");
+
+    if (!initialized) {
+	/* Initialize BOTH libcrypto and libssl. */
+	if (!OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS
+	    | OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS
+	    | OPENSSL_INIT_LOAD_CONFIG | OPENSSL_INIT_ASYNC, NULL)) {
+	    return TCL_ERROR;
+	}
+
+	/* Create BIO handlers */
+	if (BIO_new_tcl(NULL, 0) == NULL) {
+	    return TCL_ERROR;
+	}
+	initialized = 1;
+    }
+    return TCL_OK;
+}
+
 /* Init script */
 static const char tlsTclInitScript[] = {
 #include "tls.tcl.h"
@@ -2939,7 +2956,7 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 	return TCL_ERROR;
     }
 
-    if (TlsLibInit(0) != TCL_OK) {
+    if (TlsLibInit() != TCL_OK) {
 	Tcl_AppendResult(interp, "could not initialize SSL library", (char *) NULL);
 	return TCL_ERROR;
     }
@@ -2985,87 +3002,4 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 DLLEXPORT int Tls_SafeInit(Tcl_Interp *interp) {
     dprintf("Called");
     return Tls_Init(interp);
-}
-
-/*
- *------------------------------------------------------*
- *
- *	TlsLibInit --
- *
- *	------------------------------------------------*
- *	Initializes SSL library once per application
- *	------------------------------------------------*
- *
- *	Side effects:
- *		initializes SSL library
- *
- *	Result:
- *		none
- *
- *------------------------------------------------------*
- */
-static int TlsLibInit(int uninitialize) {
-    static int initialized = 0;
-    int status = TCL_OK;
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-    size_t num_locks;
-#endif
-
-    if (uninitialize) {
-	if (!initialized) {
-	    dprintf("Asked to uninitialize, but we are not initialized");
-
-	    return TCL_OK;
-	}
-
-	dprintf("Asked to uninitialize");
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-	Tcl_MutexLock(&init_mx);
-
-	if (locks) {
-	    free(locks);
-	    locks = NULL;
-	    locksCount = 0;
-	}
-#endif
-	initialized = 0;
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-	Tcl_MutexUnlock(&init_mx);
-#endif
-
-	return TCL_OK;
-    }
-
-    if (initialized) {
-	dprintf("Called, but using cached value");
-	return status;
-    }
-
-    dprintf("Called");
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-    Tcl_MutexLock(&init_mx);
-#endif
-    initialized = 1;
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-    num_locks = 1;
-    locksCount = (int) num_locks;
-    locks = malloc(sizeof(*locks) * num_locks);
-    memset(locks, 0, sizeof(*locks) * num_locks);
-#endif
-
-    /* Initialize BOTH libcrypto and libssl. */
-    OPENSSL_init_ssl(OPENSSL_INIT_LOAD_SSL_STRINGS | OPENSSL_INIT_LOAD_CRYPTO_STRINGS
-	| OPENSSL_INIT_ADD_ALL_CIPHERS | OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
-
-    BIO_new_tcl(NULL, 0);
-
-#if defined(OPENSSL_THREADS) && defined(TCL_THREADS)
-	Tcl_MutexUnlock(&init_mx);
-#endif
-
-    return status;
 }
