@@ -2751,6 +2751,12 @@ Tls_Free(tls_free_type *blockPtr) {
 void Tls_Clean(State *statePtr) {
     dprintf("Called");
 
+    if (statePtr->ssl) {
+	/* Send close_notify message */
+	dprintf("SSL_shutdown(%p)", statePtr->ssl);
+	SSL_shutdown(statePtr->ssl);
+    }
+
     /*
      * we're assuming here that we're single-threaded
      */
@@ -2759,25 +2765,7 @@ void Tls_Clean(State *statePtr) {
 	statePtr->timer = NULL;
     }
 
-    if (statePtr->protos) {
-	ckfree(statePtr->protos);
-	statePtr->protos = NULL;
-    }
-    if (statePtr->bio) {
-	/* This will call SSL_shutdown. Bug 1414045 */
-	dprintf("BIO_free_all(%p)", statePtr->bio);
-	BIO_free_all(statePtr->bio);
-	statePtr->bio = NULL;
-    }
-    if (statePtr->ssl) {
-	dprintf("SSL_free(%p)", statePtr->ssl);
-	SSL_free(statePtr->ssl);
-	statePtr->ssl = NULL;
-    }
-    if (statePtr->ctx) {
-	SSL_CTX_free(statePtr->ctx);
-	statePtr->ctx = NULL;
-    }
+    /* Remove callbacks */
     if (statePtr->callback) {
 	Tcl_DecrRefCount(statePtr->callback);
 	statePtr->callback = NULL;
@@ -2789,6 +2777,29 @@ void Tls_Clean(State *statePtr) {
     if (statePtr->vcmd) {
 	Tcl_DecrRefCount(statePtr->vcmd);
 	statePtr->vcmd = NULL;
+    }
+
+    if (statePtr->protos) {
+	ckfree(statePtr->protos);
+	statePtr->protos = NULL;
+    }
+
+    if (statePtr->bio) {
+	/* This will call SSL_shutdown. Bug 1414045 */
+	dprintf("BIO_free_all(%p)", statePtr->bio);
+	BIO_free_all(statePtr->bio);
+	statePtr->bio = NULL;
+    }
+
+    if (statePtr->ssl) {
+	dprintf("SSL_free(%p)", statePtr->ssl);
+	SSL_free(statePtr->ssl);
+	statePtr->ssl = NULL;
+    }
+
+    if (statePtr->ctx) {
+	SSL_CTX_free(statePtr->ctx);
+	statePtr->ctx = NULL;
     }
 
     dprintf("Returning");
@@ -2880,17 +2891,35 @@ BuildInfoCommand(Tcl_Interp* interp) {
 /*
  *------------------------------------------------------*
  *
+ * TlsLibShutdown --
+ *
+ *	Shutdown SSL library once per application
+ *
+ * Results:
+ *	A standard TCL result
+ *
+ * Side effects:
+ *	Shutdown SSL library
+ *
+ *------------------------------------------------------*
+ */
+static int TlsLibShutdown(ClientData clientData) {
+    BIO_cleanup();
+    return TCL_OK;
+}
+
+/*
+ *------------------------------------------------------*
+ *
  *	TlsLibInit --
  *
- *	------------------------------------------------*
  *	Initializes SSL library once per application
- *	------------------------------------------------*
  *
- *	Side effects:
- *		initializes SSL library
+ * Results:
+ *	A standard Tcl result
  *
- *	Result:
- *		none
+ * Side effects:
+ *	Initializes SSL library
  *
  *------------------------------------------------------*
  */
@@ -2908,9 +2937,10 @@ static int TlsLibInit() {
 	}
 
 	/* Create BIO handlers */
-	if (BIO_new_tcl(NULL, 0) == NULL) {
-	    return TCL_ERROR;
-	}
+	BIO_new_tcl(NULL, 0);
+	
+	/* Create exit handler */
+	Tcl_CreateExitHandler(TlsLibShutdown, NULL);
 	initialized = 1;
     }
     return TCL_OK;
@@ -2927,12 +2957,13 @@ static const char tlsTclInitScript[] = {
  * Tls_Init --
  *
  *	This is a package initialization procedure, which is called
- *	by Tcl when this package is to be added to an interpreter.
+ *	by TCL when this package is to be added to an interpreter.
  *
- * Results:  Ssl configured and loaded
+ * Results:
+ *	Initializes structures and creates commands.
  *
  * Side effects:
- *	 create the ssl command, initialize ssl context
+ *	 Create the commands
  *
  *-------------------------------------------------------------------
  */
@@ -2982,22 +3013,19 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 }
 
 /*
- *------------------------------------------------------*
+ *-------------------------------------------------------------------
  *
  *	Tls_SafeInit --
  *
- *	------------------------------------------------*
- *	Standard procedure required by 'load'.
- *	Initializes this extension for a safe interpreter.
- *	------------------------------------------------*
+ *	This is a package initialization procedure for safe interps.
  *
- *	Side effects:
- *		As of 'Tls_Init'
+ * Results:
+ *	Same as of 'Tls_Init'
  *
- *	Result:
- *		A standard Tcl error code.
+ * Side effects:
+ *	Same as of 'Tls_Init'
  *
- *------------------------------------------------------*
+ *-------------------------------------------------------------------
  */
 DLLEXPORT int Tls_SafeInit(Tcl_Interp *interp) {
     dprintf("Called");
