@@ -2094,7 +2094,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 /*
  *-------------------------------------------------------------------
  *
- * StatusObjCmd -- return certificate for connected peer.
+ * StatusObjCmd -- return certificate for connected peer info.
  *
  * Results:
  *	A standard Tcl result.
@@ -2268,11 +2268,21 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
     ssl = statePtr->ssl;
     if (ssl != NULL) {
+	const unsigned char *proto;
+	unsigned int ulen;
+
+	/* Initialization finished */
+	LAPPEND_BOOL(interp, objPtr, "init_finished", SSL_is_init_finished(ssl));
+	
 	/* connection state */
 	LAPPEND_STR(interp, objPtr, "state", SSL_state_string_long(ssl), -1);
 
 	/* Get SNI requested server name */
 	LAPPEND_STR(interp, objPtr, "servername", SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1);
+
+	/* Report the selected protocol as a result of the negotiation */
+	SSL_get0_alpn_selected(statePtr->ssl, &proto, &ulen);
+	LAPPEND_STR(interp, objPtr, "alpn", (char *)proto, (Tcl_Size) ulen);
 
 	/* Get protocol */
 	LAPPEND_STR(interp, objPtr, "protocol", SSL_get_version(ssl), -1);
@@ -2291,6 +2301,26 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
 	/* Is DTLS */
 	LAPPEND_BOOL(interp, objPtr, "is_dtls", SSL_is_dtls(ssl));
+
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L
+	/* Is QUIC */
+	LAPPEND_BOOL(interp, objPtr, "is_quic", SSL_is_quic(ssl));
+
+	/* Is TLS */
+	LAPPEND_BOOL(interp, objPtr, "is_tls", SSL_is_tls(ssl));
+#endif
+
+	/* DANE TLS authentication */
+	LAPPEND_BOOL(interp, objPtr, "dane_auth", SSL_get0_dane(ssl) != NULL);
+
+	/* Waiting for async */
+	LAPPEND_BOOL(interp, objPtr, "waiting_for_async", SSL_waiting_for_async(ssl));
+
+	/* Time-out */
+	LAPPEND_LONG(interp, objPtr, "time-out", SSL_get_default_timeout(ssl));
+
+	/* Is Certificate Transparency validation enabled */
+	LAPPEND_BOOL(interp, objPtr, "ct_enabled", SSL_ct_is_enabled(ssl));
     }
 
     /* Cipher info */
