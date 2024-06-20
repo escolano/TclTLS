@@ -133,6 +133,11 @@ used directly.</p>
 	<dd>Specifies the file with the Certificate Authority (CA) certificates
 	    to use. The default is <b>cert.pem</b>, in the OpenSSL directory. This can
 	    also be overridden via the <b>SSL_CERT_FILE</b> environment variable.</dd>
+	<dt><strong>-castore</strong> <em>URI</em></dt>
+	<dd>URI for a store, which may be a single container or a catalog of
+	    containers. On Windows, set to "org.openssl.winstore://" to use the
+	    built-in Windows Cert Store. The Windows cert store only supports
+	    root certificate stores.</dd>
 	<dt><strong>-certfile</strong> <em>filename</em></dt>
 	<dd>Specifies the file with the certificate to use in PEM format.
 	    This also contains the public key.</dd>

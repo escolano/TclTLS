@@ -35,6 +35,7 @@ namespace eval tls {
         {* -alpn iopts 1}
         {* -cadir iopts 1}
         {* -cafile iopts 1}
+        {* -castore iopts 1}
         {* -cert iopts 1}
         {* -certfile iopts 1}
         {* -cipher iopts 1}

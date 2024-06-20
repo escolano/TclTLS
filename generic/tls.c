@@ -49,8 +49,8 @@
 
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
 		char *certfile, unsigned char *key_asn1, unsigned char *cert_asn1,
-		Tcl_Size key_asn1_len, Tcl_Size cert_asn1_len, char *CApath, char *CAfile,
-		char *ciphers, char *ciphersuites, int level, char *DHparams);
+		Tcl_Size key_asn1_len, Tcl_Size cert_asn1_len, char *CApath, char *CAstore,
+		char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams);
 
 #define TLS_PROTO_SSL2		0x01
 #define TLS_PROTO_SSL3		0x02
@@ -1257,6 +1257,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     char *ciphersuites		= NULL;
     char *CAfile		= NULL;
     char *CApath		= NULL;
+    char *CAstore		= NULL;
     char *DHparams		= NULL;
     char *model			= NULL;
     char *servername		= NULL;	/* hostname for Server Name Indication */
@@ -1307,6 +1308,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-alpn", alpn);
 	OPTSTR("-cadir", CApath);
 	OPTSTR("-cafile", CAfile);
+	OPTSTR("-castore", CAstore);
 	OPTBYTE("-cert", cert, cert_len);
 	OPTSTR("-certfile", certfile);
 	OPTSTR("-cipher", ciphers);
@@ -1334,7 +1336,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	OPTOBJ("-validatecommand", vcmd);
 	OPTOBJ("-vcmd", vcmd);
 
-	OPTBAD("option", "-alpn, -cadir, -cafile, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -security_level, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
+	OPTBAD("option", "-alpn, -cadir, -cafile, -castore, -cert, -certfile, -cipher, -ciphersuites, -command, -dhparams, -key, -keyfile, -model, -password, -post_handshake, -request, -require, -security_level, -server, -servername, -session_id, -ssl2, -ssl3, -tls1, -tls1.1, -tls1.2, -tls1.3, or -validatecommand");
 
 	return TCL_ERROR;
     }
@@ -1359,6 +1361,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     if (ciphersuites && !*ciphersuites) ciphersuites    = NULL;
     if (CAfile && !*CAfile)	        CAfile	        = NULL;
     if (CApath && !*CApath)	        CApath	        = NULL;
+    if (CAstore && !*CAstore)	        CAstore	        = NULL;
     if (DHparams && !*DHparams)	        DHparams        = NULL;
 
     /* new SSL state */
@@ -1420,7 +1423,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, key_len,
-	    cert_len, CApath, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
+	    cert_len, CApath, CAstore, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1572,6 +1575,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
      */
     SSL_set_app_data(statePtr->ssl, (void *)statePtr);	/* point back to us */
     SSL_set_verify(statePtr->ssl, verify, VerifyCallback);
+    /*SSL_set_verify_depth(SSL_set_verify_depth, 0);*/
     SSL_set_info_callback(statePtr->ssl, InfoCallback);
 
     /* Callback for observing protocol messages */
@@ -1742,7 +1746,7 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 static SSL_CTX *
 CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile,
     unsigned char *key, unsigned char *cert, Tcl_Size key_len, Tcl_Size cert_len, char *CApath,
-    char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams) {
+    char *CAstore, char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams) {
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
@@ -2035,9 +2039,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
     }
 
-    /* Set to use default location and file for Certificate Authority (CA) certificates. The
-     * verify path and store can be overridden by the SSL_CERT_DIR env var. The verify file can
-     * be overridden by the SSL_CERT_FILE env var. */
+    /* Set to use the default location and file for Certificate Authority (CA) certificates.
+     * The default CA certificates directory is called certs in the default OpenSSL
+     * directory. It contains the CA certificates in PEM format, with one certificate per
+     * file. The verify path and store can be overridden by the SSL_CERT_DIR env var. The
+     * default CA certificates file is called cert.pem in the default OpenSSL directory.
+     * The verify file can be overridden by the SSL_CERT_FILE env var. */
     if (!SSL_CTX_set_default_verify_paths(ctx)) {
 	abort++;
     }
@@ -2066,12 +2073,23 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
 
 #else
+	/* Directory containing CA certificates in PEM format. */
 	if (CApath != NULL) {
 	    if (!SSL_CTX_load_verify_dir(ctx, F2N(CApath, &ds))) {
 		abort++;
 	    }
 	    Tcl_DStringFree(&ds);
 	}
+	
+	/* URI for to a store, which may be a single container or a catalog of containers. */
+	if (CAstore != NULL) {
+	    if (!SSL_CTX_load_verify_store(ctx, F2N(CAstore, &ds))) {
+		abort++;
+	    }
+	    Tcl_DStringFree(&ds);
+	}
+	
+	/* File of CA certificates in PEM format.  */
 	if (CAfile != NULL) {
 	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
 		abort++;
@@ -2784,6 +2802,9 @@ void Tls_Clean(State *statePtr) {
     if (statePtr->ssl) {
 	/* Send close_notify message */
 	dprintf("SSL_shutdown(%p)", statePtr->ssl);
+	/* Will return return 0 while shutdown in process, then 1 when complete */
+	/* closes the write direction of the connection; the read direction is closed by the peer. */
+	/* Does not affect socket */
 	SSL_shutdown(statePtr->ssl);
     }
 
