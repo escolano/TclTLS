@@ -99,6 +99,15 @@ If installing with MinGW, use the TEA build process. If using MS Visual C
 (MSVC), see the win/README.txt file for the installation instructions.
 
 
+Other
+-----
+
+If OpenSSL is not installed on the system, the Certificate Authority (CA)
+provided certificates must be downloaded and installed with the software.
+The CURL team makes them available at https://curl.se/docs/caextract.html.
+Look for the cacert.pem file.
+
+
 Copyrights
 ==========
 

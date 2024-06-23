@@ -37,11 +37,14 @@
 	<dd><b>tls::version</b></dd>
     </dl></dd>
     <dd><a href="#COMMANDS">COMMANDS</a></dd>
+    <dd><a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a></dd>
     <dd><a href="#CALLBACK OPTIONS">CALLBACK OPTIONS</a></dd>
+    <dd><a href="#DEBUG">DEBUG</a></dd>
     <dd><a href="#HTTPS EXAMPLE">HTTPS EXAMPLE</a></dd>
-    <dd><a href="#SEE ALSO">SPECIAL CONSIDERATIONS</a></dd>
+    <dd><a href="#SPECIAL CONSIDERATIONS">SPECIAL CONSIDERATIONS</a></dd>
     <dd><a href="#SEE ALSO">SEE ALSO</a></dd>
 </dl>
+<br>
 
 <hr>
 
@@ -49,6 +52,7 @@
 
 <p><strong>tls</strong> - binding to <strong>OpenSSL</strong> library
 for encrypted socket and I/O channel communications.</p>
+<br>
 
 <hr>
 
@@ -70,6 +74,7 @@ for encrypted socket and I/O channel communications.</p>
 <a href="#tls::protocols"><b>tls::protocols</b></a><br>
 <a href="#tls::version"><b>tls::version</b></a><br>
 </p>
+<br>
 
 <hr>
 
@@ -83,6 +88,7 @@ These sockets behave exactly the same as channels created using the built-in
 <strong>socket</strong> command, along with additional options for controlling
 the SSL/TLS session.
 </p>
+<br>
 
 <hr>
 
@@ -127,17 +133,22 @@ used directly.</p>
 	<dt><strong>-cadir</strong> <em>dir</em></dt>
 	<dd>Specifies the directory where the Certificate Authority (CA)
 	    certificates are stored. The default is platform specific and can be
-	    set at compile time. This can be overridden via the <b>SSL_CERT_DIR</b>
-	    environment variable.</dd>
+	    set at compile time. The default location can be overridden via the
+	    <b>SSL_CERT_DIR</b> environment variable.
+	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
 	<dt><strong>-cafile </strong><em>filename</em></dt>
 	<dd>Specifies the file with the Certificate Authority (CA) certificates
-	    to use. The default is <b>cert.pem</b>, in the OpenSSL directory. This can
-	    also be overridden via the <b>SSL_CERT_FILE</b> environment variable.</dd>
+	    to use. The default is <b>cert.pem</b>, in the OpenSSL directory.
+	    The default file can be overridden via the <b>SSL_CERT_FILE</b>
+	    environment variable.
+	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
 	<dt><strong>-castore</strong> <em>URI</em></dt>
-	<dd>URI for a store, which may be a single container or a catalog of
-	    containers. On Windows, set to "org.openssl.winstore://" to use the
-	    built-in Windows Cert Store. The Windows cert store only supports
-	    root certificate stores.</dd>
+	<dd>URI for a Certificate Authority (CA) store, which may be a single
+	    container or a catalog of containers. Starting with OpenSSL 3.2 on
+	    Windows, set to "org.openssl.winstore://" to use the built-in
+	    Windows Cert Store. The Windows cert store only supports root
+	    certificate stores.
+	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
 	<dt><strong>-certfile</strong> <em>filename</em></dt>
 	<dd>Specifies the file with the certificate to use in PEM format.
 	    This also contains the public key.</dd>
@@ -178,12 +189,14 @@ used directly.</p>
 	<dd>Allow post-handshake session ticket updates.</dd>
 	<dt><strong>-request </strong><em>bool</em></dt>
 	<dd>Request a certificate from peer during the SSL handshake. This is
-	    needed to do certificate validation. (default is <em>true</em>)</dd>
+	    needed to do certificate validation. (default is <em>true</em>).
+	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
 	<dt><strong>-require</strong> <em>bool</em></dt>
 	<dd>Require a valid certificate from peer during SSL handshake. If this
-	    is set to true, then <strong>-request</strong> must also be set to true
-	    and a either a -cadir, -cafile, or platform default must be provided in
-	    order to validate against. (default is <em>false</em>)</dd>
+	    is set to true, then <strong>-request</strong> must also be set to
+	    true and a either a -cadir, -cafile, -castore, or platform default
+	    must be provided in order to validate against. (default is <em>false</em>).
+	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
 	<dt><strong>-security_level</strong> <em>integer</em></dt>
 	<dd>Specifies the security level (value from 0 to 5). The security level
 	    affects the cipher suite encryption algorithms, supported ECC curves,
@@ -436,6 +449,42 @@ used directly.</p>
     <dt><a name="tls::version"><strong>tls::version</strong></a></dt>
     <dd>Returns the OpenSSL version string.</dd>
 </dl>
+<br>
+
+<hr>
+
+<h3><a name="CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a></h3>
+
+<p>
+By default, a client TLS connection is set to NOT request nor validate the
+server certificates. This limitation is due to the lack of a common cross
+platform database of Certificate Authority (CA) provided certificates to
+validate against. Many Linux systems natively support OpenSSL and thus have
+these certificates installed as part of the OS, but MacOS and Windows do not.
+In order to use the <b>-require</b> option, one of the following must be true:</p>
+<ul>
+<li>On Linux and Unix systems with OpenSSL already installed, if the CA
+certificates are stored in the standard locations, or the <b>SSL_CERT_DIR</b>
+or <b>SSL_CERT_FILE</b> env vars are set, then no other options are needed.</li>
+
+<li>If OpenSSL is not installed in the default location, or when using Mac OS
+or Windows and OpenSSL is installed, the <b>SSL_CERT_DIR</b> and/or 
+<b>SSL_CERT_FILE</b> env vars or the <b>-cadir</b> and/or <b>-cafile</b>
+ options must be defined.</li>
+
+<li>On Windows, starting in OpenSSL 3.2, it is now possible to access the
+built-in Windows Certificate Store from OpenSSL. This can be achieved by
+setting the <b>-castore</b> option to "<b>org.openssl.winstore://</b>".</li>
+
+<li>If OpenSSL is not installed, the CA certificates must be downloaded and
+installed with the user software. The CURL team makes them available at
+<a href="https://curl.se/docs/caextract.html">CA certificates extracted
+from Mozilla</a>. Look for the <b>cacert.pem</b> file. You must then either
+set the <b>SSL_CERT_DIR</b> and/or <b>SSL_CERT_FILE</b> env vars or the
+<b>-cadir</b> or <b>-cafile</b> options must be set to the file's install
+location. It is your responsibility to keep this file up to date.</li>
+</ul>
+<br>
 
 <hr>
 
@@ -447,8 +496,8 @@ to handle intermediate processing by the OpenSSL library, using the
 <strong>-command</strong>, <strong>-password</strong>, and
 <strong>-validate_command</strong> options passed to either of
 <strong>tls::socket</strong> or <strong>tls::import</strong>.
-If the callback generates an error, the <b>bgerror</b> command will be
-invoked with the error information.
+Unlike previous versions of TCL TLS, only if the callback generates an error,
+will the <b>bgerror</b> command will be invoked with the error information.
 </p>
 
 <dl>
@@ -646,30 +695,32 @@ The use of the reference callbacks <strong>tls::callback</strong>,
 is not recommended. They may be removed from future releases.
 </em>
 </p>
+<br>
 
 <hr>
 
 <h3><a name="DEBUG">DEBUG</a></h3>
 
-TLS key logging can be enabled by setting the environment variable
+<p>For most debugging needs, the <b>-callback</b> option can be used to provide
+sufficient insight and information on the TLS handshake and progress. If further
+troubleshooting insight is needed, the compile time option <b>--enable-debug</b>
+can be used to get detailed execution flow status.</p>
+
+<p>TLS key logging can be enabled by setting the environment variable
 <b>SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS
 key material is generated or received it will be logged to the file. This
 is useful for logging key data for network logging tools to use to
-decrypt the data.
-<p>
-The <strong>tls::debug</strong> variable provides some additional
+decrypt the data.</p>
+
+<p>The <strong>tls::debug</strong> variable provides some additional
 control over these reference callbacks. Its value is zero by default.
 Higher values produce more diagnostic output, and will also force the
 verify method in <strong>tls::callback</strong> to accept the
 certificate, even when it is invalid if the <b>tls::validate_command</b>
-callback is used for the <b>-validatecommand</b> option.
-</p>
-<p>
-<em>
-The use of the variable <strong>tls::debug</strong> is not recommended.
-It may be removed from future releases.
-</em>
-</p>
+callback is used for the <b>-validatecommand</b> option.</p>
+
+<p><em>The use of the variable <strong>tls::debug</strong> is not recommended.
+It may be removed from future releases.</em></p>
 
 <h4><a name="DEBUG_EXAMPLES">Debug Examples</a></h4>
 
@@ -727,6 +778,7 @@ parray status
 parray conn
 parray chan
 </code></pre>
+<br>
 
 <hr>
 
@@ -776,6 +828,7 @@ set token [::http::geturl $url -blocksize 65536 -channel $ch]
 close $ch
 ::http::cleanup $token
 </code></pre>
+<br>
 
 <hr>
 
