@@ -188,9 +188,9 @@ used directly.</p>
 	<dd>Specifies the security level (value from 0 to 5). The security level
 	    affects the cipher suite encryption algorithms, supported ECC curves,
 	    supported signature algorithms, DH parameter sizes, certificate key
-	    sizes and signature algorithms. The default is 1. Level 3 and higher
-	    disable support for session tickets and only accept cipher suites that
-	    provide forward secrecy.</dd>
+	    sizes and signature algorithms. The default is 1 prior to OpenSSL 3.2
+	    and 2 thereafter. Level 3 and higher disable support for session
+	    tickets and only accept cipher suites that provide forward secrecy.</dd>
 	<dt><strong>-server</strong> <em>bool</em></dt>
 	<dd>Specifies whether to act as a server and respond with a server
 	    handshake when a client connects and provides a client handshake.
@@ -202,13 +202,19 @@ used directly.</p>
 	<dt><strong>-session_id</strong> <em>string</em></dt>
 	<dd>Specifies the session id to resume session.</dd>
 	<dt><strong>-ssl2</strong> <em>bool</em></dt>
-	<dd>Enable use of SSL v2. (default is <em>false</em>)</dd>
+	<dd>Enable use of SSL v2. (default is <em>false</em>).
+	Note: Recent versions of OpenSSL don't support SSLv2.</dd>
 	<dt><strong>-ssl3 </strong><em>bool</em></dt>
-	<dd>Enable use of SSL v3. (default is <em>false</em>)</dd>
+	<dd>Enable use of SSL v3. (default is <em>false</em>).
+	Note: SSL v3 must also be enabled with a compile time option.</dd>
 	<dt>-<strong>tls1</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1. (default is <em>true</em>)</dd>
+	<dd>Enable use of TLS v1. (default is <em>true</em>).
+	Note: TLS 1.0 needs SHA1 to operate, which is only available in
+	security level 0 for Open SSL 3.0+.</dd>
 	<dt>-<strong>tls1.1</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1.1 (default is <em>true</em>)</dd>
+	<dd>Enable use of TLS v1.1 (default is <em>true</em>).
+	Note: TLS 1.1 needs SHA1 to operate, which is only available in
+	security level 0 for Open SSL 3.0+.</dd>
 	<dt>-<strong>tls1.2</strong> <em>bool</em></dt>
 	<dd>Enable use of TLS v1.2 (default is <em>true</em>)</dd>
 	<dt>-<strong>tls1.3</strong> <em>bool</em></dt>
