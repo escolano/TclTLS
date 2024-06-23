@@ -1888,12 +1888,18 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 #endif
 
     SSL_CTX_set_app_data(ctx, (void*)interp);	/* remember the interpreter */
-    SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* all SSL bug workarounds */
-    SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* disable compression even if supported */
-    SSL_CTX_set_options(ctx, off);		/* disable protocol versions */
-#if OPENSSL_VERSION_NUMBER < 0x10101000L
-    SSL_CTX_set_mode(ctx, SSL_MODE_AUTO_RETRY);	/* handle new handshakes in background. On by default in OpenSSL 1.1.1. */
-#endif
+    SSL_CTX_set_options(ctx, SSL_OP_ALL);	/* Enable all SSL bug workarounds */
+    SSL_CTX_set_options(ctx, SSL_OP_NO_COMPRESSION);	/* Disable compression even if supported */
+    SSL_CTX_set_options(ctx, off);		/* Disable specified protocol versions */
+
+    /* Allow writes to report success when less than all records have been written */
+    SSL_CTX_set_mode(ctx, SSL_MODE_ENABLE_PARTIAL_WRITE);
+
+    /* Disable attempts to try to process the next record instead of returning after a
+       non-app record. Avoids hangs in blocking mode, when using SSL_read() and a
+       non-application record was sent and no application data was sent. */
+    SSL_CTX_clear_mode(ctx, SSL_MODE_AUTO_RETRY);
+
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
     /* Set user defined ciphers, cipher suites, and security level */
