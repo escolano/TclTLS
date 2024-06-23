@@ -2063,7 +2063,11 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    Tcl_DStringInit(&ds1);
 
 	    if (!SSL_CTX_load_verify_locations(ctx, F2N(CAfile, &ds), F2N(CApath, &ds1))) {
-		abort++;
+		Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		Tcl_DStringFree(&ds);
+		Tcl_DStringFree(&ds1);
+		return NULL;
 	    }
 	    Tcl_DStringFree(&ds);
 	    Tcl_DStringFree(&ds1);
@@ -2079,26 +2083,35 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
 
 #else
-	/* Directory containing CA certificates in PEM format. */
+	/* Set directory containing CA certificates in PEM format. */
 	if (CApath != NULL) {
 	    if (!SSL_CTX_load_verify_dir(ctx, F2N(CApath, &ds))) {
-		abort++;
+		Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		Tcl_DStringFree(&ds);
+		return NULL;
 	    }
 	    Tcl_DStringFree(&ds);
 	}
 	
-	/* URI for to a store, which may be a single container or a catalog of containers. */
+	/* Set URI for to a store, which may be a single container or a catalog of containers. */
 	if (CAstore != NULL) {
 	    if (!SSL_CTX_load_verify_store(ctx, F2N(CAstore, &ds))) {
-		abort++;
+		Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		Tcl_DStringFree(&ds);
+		return NULL;
 	    }
 	    Tcl_DStringFree(&ds);
 	}
 	
-	/* File of CA certificates in PEM format.  */
+	/* Set file of CA certificates in PEM format.  */
 	if (CAfile != NULL) {
 	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
-		abort++;
+		Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+		SSL_CTX_free(ctx);
+		Tcl_DStringFree(&ds);
+		return NULL;
 	    }
 	    Tcl_DStringFree(&ds);
 
