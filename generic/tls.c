@@ -378,7 +378,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	Tcl_NewStringObj(Tcl_GetChannelName(statePtr->self), -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(depth));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tls_NewX509Obj(interp, cert));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tls_NewX509Obj(interp, cert, 0));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(ok));
     Tcl_ListObjAppendElement(interp, cmdPtr,
 	Tcl_NewStringObj((char*)X509_verify_cert_error_string(err), -1));
@@ -2186,7 +2186,7 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     }
     /* Get X509 certificate info */
     if (peer) {
-	objPtr = Tls_NewX509Obj(interp, peer);
+	objPtr = Tls_NewX509Obj(interp, peer, 1);
 	if (objc == 2) {
 	    X509_free(peer);
 	    peer = NULL;

@@ -213,7 +213,7 @@ typedef struct State {
 const Tcl_ChannelType *Tls_ChannelType(void);
 Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
 
-Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert);
+Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all);
 Tcl_Obj		*Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
 void            Tls_Error(State *statePtr, const char *msg);
 void            Tls_Free(tls_free_type *blockPtr);

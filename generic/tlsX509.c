@@ -371,7 +371,7 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
  */
 
 Tcl_Obj*
-Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
+Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     Tcl_Obj *certPtr = Tcl_NewListObj(0, NULL);
     BIO *bio = BIO_new(BIO_s_mem());
     int mdnid, pknid, bits, len;
@@ -596,16 +596,28 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert) {
     }
 
     /* Certificate and dump all data */
-    {
-	char certStr[CERT_STR_SIZE];
+    if (all) {
+	Tcl_Obj *allObj = Tcl_NewByteArrayObj(NULL, 0);
+	Tcl_Obj *certObj = Tcl_NewByteArrayObj(NULL, 0);
+	unsigned char *allStr, *certStr;
+
+	if (allObj == NULL || certObj == NULL) {
+	    Tcl_DecrRefCount(allObj);
+	    BIO_free(bio);
+	    return certPtr;
+	}
 
 	/* Get certificate */
+	certStr = Tcl_SetByteArrayLength(certObj, CERT_STR_SIZE);
 	len = BIO_to_Buffer(PEM_write_bio_X509(bio, cert), bio, certStr, CERT_STR_SIZE);
-	LAPPEND_STR(interp, certPtr, "certificate", certStr, (Tcl_Size) len);
+	Tcl_SetByteArrayLength(certObj, len);
+	LAPPEND_OBJ(interp, certPtr, "certificate", certObj)
 
-	/* Get all cert info */
-	len = BIO_to_Buffer(X509_print_ex(bio, cert, flags, 0), bio, certStr, CERT_STR_SIZE);
-	LAPPEND_STR(interp, certPtr, "all", certStr, (Tcl_Size) len);
+	/* Get all info on certificate */
+	allStr = Tcl_SetByteArrayLength(allObj, CERT_STR_SIZE * 2);
+	len = BIO_to_Buffer(X509_print_ex(bio, cert, flags, 0), bio, allStr, CERT_STR_SIZE * 2);
+	Tcl_SetByteArrayLength(allObj, len);
+	LAPPEND_OBJ(interp, certPtr, "all", allObj)
     }
 
     BIO_free(bio);
