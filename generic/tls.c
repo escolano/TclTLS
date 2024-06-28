@@ -370,7 +370,7 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 	return 0;
     }
 
-    dprintf("VerifyCallback: eval callback");
+    dprintf("VerifyCallback: create callback command");
 
     /* Create command to eval with fn, chan, depth, cert info list, status, and error args */
     cmdPtr = Tcl_DuplicateObj(statePtr->vcmd);
@@ -385,6 +385,8 @@ VerifyCallback(int ok, X509_STORE_CTX *ctx) {
 
     /* Prevent I/O while callback is in progress */
     /* statePtr->flags |= TLS_TCL_CALLBACK; */
+
+    dprintf("VerifyCallback: eval callback");
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -423,6 +425,8 @@ Tls_Error(State *statePtr, const char *msg) {
 	return;
     }
 
+    dprintf("Tls_Error: create callback command");
+
     /* Create command to eval with fn, chan, and message args */
     cmdPtr = Tcl_DuplicateObj(statePtr->callback);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("error", -1));
@@ -441,6 +445,8 @@ Tls_Error(State *statePtr, const char *msg) {
 	}
 	Tcl_ListObjAppendElement(interp, cmdPtr, listPtr);
     }
+
+    dprintf("Tls_Error: eval callback");
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -518,11 +524,15 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 	}
     }
 
+    dprintf("PasswordCallback: create callback command");
+
     /* Create command to eval with fn, rwflag, and size args */
     cmdPtr = Tcl_DuplicateObj(statePtr->password);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("password", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(rwflag));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(size));
+
+    dprintf("PasswordCallback: eval callback");
 
     Tcl_Preserve((ClientData) interp);
     Tcl_Preserve((ClientData) statePtr);
@@ -2280,6 +2290,8 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     const EVP_MD *md;
     (void) clientData;
 
+    dprintf("Called");
+
     if (objc != 2) {
 	Tcl_WrongNumArgs(interp, 1, objv, "channel");
 	return TCL_ERROR;
@@ -2348,10 +2360,10 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 #endif
 
 	/* DANE TLS authentication */
-	LAPPEND_BOOL(interp, objPtr, "dane_auth", SSL_get0_dane(ssl) != NULL);
+	LAPPEND_BOOL(interp, objPtr, "dane_auth", SSL_get0_dane((SSL *)ssl) != NULL);
 
 	/* Waiting for async */
-	LAPPEND_BOOL(interp, objPtr, "waiting_for_async", SSL_waiting_for_async(ssl));
+	LAPPEND_BOOL(interp, objPtr, "waiting_for_async", SSL_waiting_for_async((SSL *)ssl));
 
 	/* Time-out */
 	LAPPEND_LONG(interp, objPtr, "time-out", SSL_get_default_timeout(ssl));
@@ -2973,9 +2985,10 @@ BuildInfoCommand(Tcl_Interp* interp) {
  *
  *------------------------------------------------------*
  */
-static int TlsLibShutdown(ClientData clientData) {
+void TlsLibShutdown(ClientData clientData) {
+    dprintf("Called");
+
     BIO_cleanup();
-    return TCL_OK;
 }
 
 /*

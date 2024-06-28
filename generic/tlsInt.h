@@ -140,9 +140,9 @@
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
     Tcl_ListObjAppendElement(interp, obj, Tcl_NewBooleanObj(value)); \
 }
-#define LAPPEND_OBJ(interp, obj, text, listObj) {\
+#define LAPPEND_OBJ(interp, obj, text, tclObj) {\
     if (text != NULL) Tcl_ListObjAppendElement(interp, obj, Tcl_NewStringObj(text, -1)); \
-    Tcl_ListObjAppendElement(interp, obj, listObj); \
+    Tcl_ListObjAppendElement(interp, obj, (tclObj != NULL) ? tclObj : Tcl_NewStringObj("", 0)); \
 }
 
 /*

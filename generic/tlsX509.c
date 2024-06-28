@@ -16,7 +16,7 @@
 #include "tlsInt.h"
 
 /* Define maximum certificate size. Max PEM size 100kB and DER size is 24kB. */
-#define CERT_STR_SIZE 32768
+#define CERT_STR_SIZE 24576
 
 
 /*
@@ -24,24 +24,28 @@
  *	Format contents of a binary string as a hex string
  *
  * Results:
- *	Returns size of output hex string
+ *	TCL byte array object with x509 identifier as a hex string
  *
  * Side Effects:
  *	None
  *
  */
-Tcl_Size String_to_Hex(unsigned char* input, int ilen, unsigned char *buffer, Tcl_Size blen) {
-    Tcl_Size len = 0;
+Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
     unsigned char *iptr = input;
-    unsigned char *optr = &buffer[0];
+    Tcl_Obj *resultObj = Tcl_NewByteArrayObj(NULL, 0);
+    unsigned char *data = Tcl_SetByteArrayLength(resultObj, ilen*2);
+    unsigned char *dptr = &data[0];
     const char *hex = "0123456789abcdef";
 
-    for (int i = 0; i < ilen && len < blen - 1; i++, len += 2) {
-        *optr++ = hex[(*iptr>>4)&0xF];
-        *optr++ = hex[(*iptr++)&0xF];
+    if (resultObj == NULL) {
+	return NULL;
     }
-    *optr = 0;
-    return len;
+
+    for (int i = 0; i < ilen; i++) {
+        *dptr++ = hex[(*iptr>>4)&0xF];
+        *dptr++ = hex[(*iptr++)&0xF];
+    }
+    return resultObj;
 }
 
 /*
@@ -55,12 +59,12 @@ Tcl_Size String_to_Hex(unsigned char* input, int ilen, unsigned char *buffer, Tc
  *	None
  *
  */
-Tcl_Size BIO_to_Buffer(int result, BIO *bio, void *buffer, int blen) {
+Tcl_Size BIO_to_Buffer(int result, BIO *bio, void *output, int olen) {
     Tcl_Size len = 0;
     int pending = BIO_pending(bio);
 
     if (result) {
-	len = (Tcl_Size) BIO_read(bio, buffer, (pending < blen) ? pending : blen);
+	len = (Tcl_Size) BIO_read(bio, output, (pending < olen) ? pending : olen);
 	(void)BIO_flush(bio);
 	if (len < 0) {
 	    len = 0;
@@ -105,7 +109,7 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
  *	Get X.509 certificate Authority or Subject Key Identifiers
  *
  * Results:
- *	TCL string object with x509 identifier as a hex string
+ *	TCL byte array object with x509 identifier as a hex string
  *
  * Side effects:
  *	None
@@ -113,14 +117,11 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
  */
 Tcl_Obj *Tls_x509Identifier(const ASN1_OCTET_STRING *astring) {
     Tcl_Obj *resultObj = NULL;
-    Tcl_Size len = 0;
-    unsigned char buffer[1024];
 
     if (astring != NULL) {
-	len = String_to_Hex((unsigned char *)ASN1_STRING_get0_data(astring),
-	    ASN1_STRING_length(astring), buffer, 1024);
+	resultObj = String_to_Hex((unsigned char *)ASN1_STRING_get0_data(astring),
+	    ASN1_STRING_length(astring));
     }
-    resultObj = Tcl_NewStringObj((char *) &buffer[0], len);
     return resultObj;
 }
 
@@ -463,23 +464,24 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
  *	None
  *
  */
-
-Tcl_Obj*
-Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
+Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     Tcl_Obj *resultObj = Tcl_NewListObj(0, NULL);
     BIO *bio = BIO_new(BIO_s_mem());
     int mdnid, pknid, bits;
     Tcl_Size len;
     unsigned int ulen;
     uint32_t xflags;
-    char buffer[BUFSIZ];
-    unsigned char md[EVP_MAX_MD_SIZE];
     unsigned long flags = XN_FLAG_RFC2253 | ASN1_STRFLGS_UTF8_CONVERT;
     flags &= ~ASN1_STRFLGS_ESC_MSB;
 
-    if (interp == NULL || cert == NULL || bio == NULL || resultObj == NULL) {
+    char *buffer = ckalloc(BUFSIZ > EVP_MAX_MD_SIZE ? BUFSIZ : EVP_MAX_MD_SIZE);
+
+    printf("Called\n");
+
+    if (interp == NULL || cert == NULL || bio == NULL || resultObj == NULL || buffer == NULL) {
 	Tcl_DecrRefCount(resultObj);
 	BIO_free(bio);
+	if (buffer != NULL) ckfree(buffer);
 	return NULL;
     }
 
@@ -496,8 +498,11 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	/* sig_nid = X509_get_signature_nid(cert) */
 	sig_nid = OBJ_obj2nid(sig_alg->algorithm);
 	LAPPEND_STR(interp, resultObj, "signatureAlgorithm", OBJ_nid2ln(sig_nid), -1);
-	len = (sig_nid != NID_undef) ? String_to_Hex(sig->data, sig->length, (unsigned char *) buffer, BUFSIZ) : 0;
-	LAPPEND_STR(interp, resultObj, "signatureValue", buffer, len);
+	if (sig_nid != NID_undef) {
+	    LAPPEND_OBJ(interp, resultObj, "signatureValue", String_to_Hex(sig->data, sig->length));
+	} else {
+	    LAPPEND_STR(interp, resultObj, "signatureValue", "", 0);
+	}
     }
 
     /* Version of the encoded certificate - RFC 5280 section 4.1.2.1 */
@@ -531,15 +536,13 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     LAPPEND_STR(interp, resultObj, "subject", buffer, len);
 
     /* SHA1 Digest (Fingerprint) of cert - DER representation */
-    if (X509_digest(cert, EVP_sha1(), md, &ulen)) {
-	len = String_to_Hex(md, (int) ulen, (unsigned char *) buffer, BUFSIZ);
-	LAPPEND_STR(interp, resultObj, "sha1_hash", buffer, len);
+    if (X509_digest(cert, EVP_sha1(), (unsigned char *)buffer, &ulen)) {
+	LAPPEND_OBJ(interp, resultObj, "sha1_hash", String_to_Hex((unsigned char *)buffer, (int) ulen));
     }
 
     /* SHA256 Digest (Fingerprint) of cert - DER representation */
-    if (X509_digest(cert, EVP_sha256(), md, &ulen)) {
-	len = String_to_Hex(md, (int) ulen, (unsigned char *) buffer, BUFSIZ);
-	LAPPEND_STR(interp, resultObj, "sha256_hash", buffer, len);
+    if (X509_digest(cert, EVP_sha256(), (unsigned char *)buffer, &ulen)) {
+	LAPPEND_OBJ(interp, resultObj, "sha256_hash", String_to_Hex((unsigned char *)buffer, (int) ulen));
     }
 
     /* Subject Public Key Info specifies the public key and identifies the
@@ -553,21 +556,20 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	LAPPEND_INT(interp, resultObj, "bits", bits); /* Effective security bits */
 
 	key = X509_get0_pubkey_bitstr(cert);
-	len = String_to_Hex(key->data, key->length, (unsigned char *) buffer, BUFSIZ);
-	LAPPEND_STR(interp, resultObj, "publicKey", buffer, len);
+	LAPPEND_OBJ(interp, resultObj, "publicKey", String_to_Hex(key->data, key->length));
 
-	len = 0;
-	if (X509_pubkey_digest(cert, EVP_get_digestbynid(pknid), md, &n)) {
-	    len = String_to_Hex(md, (int) n, (unsigned char *) buffer, BUFSIZ);
+	if (X509_pubkey_digest(cert, EVP_get_digestbynid(pknid), (unsigned char *)buffer, &n)) {
+	    LAPPEND_OBJ(interp, resultObj, "publicKeyHash", String_to_Hex((unsigned char *)buffer, (int) n));
+	} else {
+	    LAPPEND_STR(interp, resultObj, "publicKeyHash", "", 0);
 	}
-	LAPPEND_STR(interp, resultObj, "publicKeyHash", buffer, len);
 
 	/* digest of the DER representation of the certificate */
-	len = 0;
-	if (X509_digest(cert, EVP_get_digestbynid(mdnid), md, &n)) {
-	    len = String_to_Hex(md, (int) n, (unsigned char *) buffer, BUFSIZ);
+	if (X509_digest(cert, EVP_get_digestbynid(mdnid), (unsigned char *)buffer, &n)) {
+	    LAPPEND_OBJ(interp, resultObj, "signatureHash", String_to_Hex((unsigned char *)buffer, (int) n));
+	} else {
+	    LAPPEND_STR(interp, resultObj, "signatureHash", "", 0);
 	}
-	LAPPEND_STR(interp, resultObj, "signatureHash", buffer, len);
     }
 
     /* Certificate Purpose. Call before checking for extensions. */
@@ -701,6 +703,7 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	if (allObj == NULL || certObj == NULL) {
 	    Tcl_DecrRefCount(allObj);
 	    BIO_free(bio);
+	    ckfree(buffer);
 	    return resultObj;
 	}
 
@@ -718,5 +721,6 @@ Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     }
 
     BIO_free(bio);
+    ckfree(buffer);
     return resultObj;
 }
