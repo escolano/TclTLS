@@ -1441,10 +1441,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     statePtr->ctx = ctx;
 
-    /*
-     * We need to make sure that the channel works in binary (for the
-     * encryption not to get goofed up).
-     */
+    /* Preserve channel config */
     Tcl_DStringInit(&upperChannelTranslation);
     Tcl_DStringInit(&upperChannelBlocking);
     Tcl_DStringInit(&upperChannelEOFChar);
@@ -1453,8 +1450,12 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     Tcl_GetChannelOption(interp, chan, "-encoding", &upperChannelEncoding);
     Tcl_GetChannelOption(interp, chan, "-translation", &upperChannelTranslation);
     Tcl_GetChannelOption(interp, chan, "-blocking", &upperChannelBlocking);
+
+    /* Ensure the channel works in binary mode (for the encryption not to get goofed up). */
     Tcl_SetChannelOption(interp, chan, "-translation", "binary");
     Tcl_SetChannelOption(interp, chan, "-blocking", "true");
+    
+    /* Create stacked channel */
     dprintf("Consuming Tcl channel %s", Tcl_GetChannelName(chan));
     statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), (ClientData) statePtr,
 	(TCL_READABLE | TCL_WRITABLE), chan);
@@ -1471,6 +1472,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	return TCL_ERROR;
     }
 
+    /* Restore channel config */
     Tcl_SetChannelOption(interp, statePtr->self, "-translation", Tcl_DStringValue(&upperChannelTranslation));
     Tcl_SetChannelOption(interp, statePtr->self, "-encoding", Tcl_DStringValue(&upperChannelEncoding));
     Tcl_SetChannelOption(interp, statePtr->self, "-eofchar", Tcl_DStringValue(&upperChannelEOFChar));
@@ -1647,6 +1649,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Set client mode */
 	SSL_set_connect_state(statePtr->ssl);
     }
+
+    /* Set BIO for read and write operations on SSL object */
     SSL_set_bio(statePtr->ssl, statePtr->p_bio, statePtr->p_bio);
     BIO_set_ssl(statePtr->bio, statePtr->ssl, BIO_NOCLOSE);
 
@@ -1676,7 +1680,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
  */
 static int
 UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
-    Tcl_Channel chan, child;	/* The stacked and underlying channels */
+    Tcl_Channel chan, parent;	/* The stacked and underlying channels */
     Tcl_DString upperChannelTranslation, upperChannelBlocking, upperChannelEncoding, upperChannelEOFChar;
     int res = TCL_OK;
     (void) clientData;
@@ -1696,10 +1700,10 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 
     /* Make sure to operate on the topmost channel */
     chan = Tcl_GetTopChannel(chan);
-    child = Tcl_GetStackedChannel(chan);
+    parent = Tcl_GetStackedChannel(chan);
 
     /* Verify is a stacked channel */
-    if (child == NULL) {
+    if (parent == NULL) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a stacked channel", (char *) NULL);
 	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *) NULL);
@@ -1711,26 +1715,28 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 	return TCL_ERROR;
     }
 
+    /* Init storage */
     Tcl_DStringInit(&upperChannelTranslation);
     Tcl_DStringInit(&upperChannelBlocking);
     Tcl_DStringInit(&upperChannelEOFChar);
     Tcl_DStringInit(&upperChannelEncoding);
 
-    /* Get current config - EOL translation, encoding and buffering options are shared between all channels in the stack */
+    /* Preserve current channel config */
     Tcl_GetChannelOption(interp, chan, "-blocking", &upperChannelBlocking);
     Tcl_GetChannelOption(interp, chan, "-encoding", &upperChannelEncoding);
     Tcl_GetChannelOption(interp, chan, "-eofchar", &upperChannelEOFChar);
     Tcl_GetChannelOption(interp, chan, "-translation", &upperChannelTranslation);
 
-    /* Unstack the channel and restore underlying channel config */
-    if (Tcl_UnstackChannel(interp, chan) == TCL_OK) {
-	Tcl_SetChannelOption(interp, child, "-encoding", Tcl_DStringValue(&upperChannelEncoding));
-	Tcl_SetChannelOption(interp, child, "-eofchar", Tcl_DStringValue(&upperChannelEOFChar));
-	Tcl_SetChannelOption(interp, child, "-translation", Tcl_DStringValue(&upperChannelTranslation));
-	Tcl_SetChannelOption(interp, child, "-blocking", Tcl_DStringValue(&upperChannelBlocking));
-    } else {
+    /* Unstack the channel */
+    if (Tcl_UnstackChannel(interp, chan) != TCL_OK) {
 	res = TCL_ERROR;
     }
+
+    /* Restore channel config */
+    Tcl_SetChannelOption(interp, parent, "-encoding", Tcl_DStringValue(&upperChannelEncoding));
+    Tcl_SetChannelOption(interp, parent, "-eofchar", Tcl_DStringValue(&upperChannelEOFChar));
+    Tcl_SetChannelOption(interp, parent, "-translation", Tcl_DStringValue(&upperChannelTranslation));
+    Tcl_SetChannelOption(interp, parent, "-blocking", Tcl_DStringValue(&upperChannelBlocking));
 
     /* Clean-up */
     Tcl_DStringFree(&upperChannelTranslation);

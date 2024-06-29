@@ -1,6 +1,10 @@
 /*
+ * Provides IO functions to interface between the BIO buffers and TCL
+ * applications when using stacked channels.
+ *
  * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
  * Copyright (C) 2000 Ajuba Solutions
+ * Copyright (C) 2024 Brian O'Hagan
  *
  * TLS (aka SSL) Channel - can be layered on any bi-directional
  * Tcl_Channel (Note: Requires Trf Core Patch)
@@ -21,12 +25,13 @@
 #include <errno.h>
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsBlockModeProc --
  *
- *    This procedure is invoked by the generic IO level
- *       to set channel to blocking or nonblocking mode.
+ *	This procedure is invoked by the generic IO level to set channel to
+ *	blocking or nonblocking mode. Called by the generic I/O layer whenever
+ *	the Tcl_SetChannelOption() function is used with option -blocking.
  *
  * Results:
  *    0 if successful or POSIX error code if failed.
@@ -34,7 +39,7 @@
  * Side effects:
  *    Sets the device into blocking or nonblocking mode.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsBlockModeProc(ClientData instanceData, int mode) {
     State *statePtr = (State *) instanceData;
@@ -48,15 +53,12 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsCloseProc --
  *
- *    This procedure is invoked by the generic IO level to perform
- *    channel-type-specific cleanup when a SSL socket based channel
- *    is closed.
- *
- *    Note: we leave the underlying socket alone, is this right?
+ *	This procedure is invoked by the generic IO level to perform channel
+ *	type specific cleanup when a SSL socket based channel is closed.
  *
  * Results:
  *    0 if successful or POSIX error code if failed.
@@ -64,12 +66,14 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  * Side effects:
  *    Closes the socket of the channel.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
     State *statePtr = (State *) instanceData;
 
     dprintf("TlsCloseProc(%p)", (void *) statePtr);
+
+    /* Flush any pending data */
 
     Tls_Clean(statePtr);
     Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
@@ -77,14 +81,14 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsClose2Proc --
  *
- *    Similar to TlsCloseProc, but allows for separate close read and
- *    write side of channel.
+ *	Similar to TlsCloseProc, but allows for separate close read and write
+ *	side of channel.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
     Tcl_Interp *interp,		/* For errors - can be NULL. */
@@ -101,11 +105,12 @@ static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
 }
 
 /*
- *------------------------------------------------------*
+ *-----------------------------------------------------------------------------
  *
  * Tls_WaitForConnect --
  *
- *    Perform connect (client) or accept (server)
+ *	Perform connect (client) or accept (server) function. Also performs
+ *	equivalent of handshake function.
  *
  * Result:
  *    0 if successful, -1 if failed.
@@ -113,7 +118,7 @@ static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
  * Side effects:
  *    Issues SSL_accept or SSL_connect
  *
- *------------------------------------------------------*
+ *-----------------------------------------------------------------------------
  */
 int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent) {
     unsigned long backingError;
@@ -124,6 +129,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     dprintf("WaitForConnect(%p)", (void *) statePtr);
     dprintFlags(statePtr);
 
+    /* Can also check SSL_is_init_finished(ssl) */
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
 	return 0;
@@ -148,7 +154,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     for (;;) {
 	ERR_clear_error();
 
-	/* Not initialized yet! Also calls SSL_do_handshake. */
+	/* Not initialized yet! Also calls SSL_do_handshake(). */
 	if (statePtr->flags & TLS_TCL_SERVER) {
 	    dprintf("Calling SSL_accept()");
 	    err = SSL_accept(statePtr->ssl);
@@ -300,21 +306,23 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsInputProc --
  *
- *    This procedure is invoked by the generic IO level
- *       to read input from a SSL socket based channel.
+ *	This procedure is invoked by the generic IO level to read data from the
+ *	BIo. Equivalent to SSL_read.
+ *	Called by the generic I/O layer whenever the Tcl_Read(), Tcl_ReadChars,
+ *	Tcl_Gets, and Tcl_GetsObj functions are used.
  *
  * Results:
- *    Returns the number of bytes read or -1 on error. Sets errorCodePtr
- *    to a POSIX error code if an error occurred, or 0 if none.
+ *	Returns the number of bytes read or -1 on error. Sets errorCodePtr to
+ *	a POSIX error code if an error occurred, or 0 if none.
  *
  * Side effects:
  *    Reads input from the input device of the channel.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *errorCodePtr) {
     unsigned long backingError;
@@ -322,7 +330,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     int bytesRead, err;
     *errorCodePtr = 0;
 
-    dprintf("BIO_read(%d)", bufSize);
+    dprintf("Read(%d)", bufSize);
 
     /* Skip if user verify callback is still running */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
@@ -368,6 +376,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     bytesRead = BIO_read(statePtr->bio, buf, bufSize);
     dprintf("BIO_read -> %d", bytesRead);
 
+    /* Get error is more comprehensive than SSL_want */
     err = SSL_get_error(statePtr->ssl, bytesRead);
     backingError = ERR_get_error();
 
@@ -476,7 +485,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* Peer has closed the connection for writing by sending the close_notify alert. No more data can be read. */
+	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
 	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
 	    bytesRead = 0;
 	    *errorCodePtr = 0;
@@ -504,12 +513,14 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsOutputProc --
  *
- *    This procedure is invoked by the generic IO level
- *       to write output to a SSL socket based channel.
+ *	This procedure is invoked by the generic IO level to write data to
+ *	the BIO. Equivalent to SSL_write. Called by the
+ *	generic I/O layer whenever the Tcl_Write(), Tcl_WriteChars,
+ *	TTcl_WriteObj functions are used.
  *
  * Results:
  *    Returns the number of bytes written or -1 on error. Sets errorCodePtr
@@ -518,7 +529,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  * Side effects:
  *    Writes output on the output device of the channel.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, int *errorCodePtr) {
     unsigned long backingError;
@@ -526,7 +537,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     int written, err;
     *errorCodePtr = 0;
 
-    dprintf("BIO_write(%p, %d)", (void *) statePtr, toWrite);
+    dprintf("Write(%p, %d)", (void *) statePtr, toWrite);
     dprintBuffer(buf, toWrite);
 
     /* Skip if user verify callback is still running */
@@ -593,6 +604,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     written = BIO_write(statePtr->bio, buf, toWrite);
     dprintf("BIO_write(%p, %d) -> [%d]", (void *) statePtr, toWrite, written);
 
+    /* Get error is more comprehensive than SSL_want */
     err = SSL_get_error(statePtr->ssl, written);
     backingError = ERR_get_error();
 
@@ -694,8 +706,8 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* Peer has closed the connection for writing by sending the close_notify alert. No more data can be read. */
-	    dprintf(" closed");
+	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
+	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
 	    written = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
@@ -720,7 +732,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * Tls_GetParent --
  *
@@ -729,7 +741,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  * Results:
  *    Tcl_Channel or NULL if none.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
     dprintf("Requested to get parent of channel %p", statePtr->self);
@@ -742,11 +754,12 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsSetOptionProc --
  *
- *    Sets an option value for a SSL socket based channel.
+ *	Sets an option to value for a SSL socket based channel. Called by the
+ *	generic I/O layer whenever the Tcl_SetChannelOption() function is used.
  *
  * Results:
  *    TCL_OK if successful or TCL_ERROR if failed.
@@ -754,7 +767,7 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
  * Side effects:
  *    Updates channel option to new value.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int
 TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
@@ -764,14 +777,14 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
     const char *optionValue)	/* Value for option. */
 {
     State *statePtr = (State *) instanceData;
-    Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    Tcl_Channel parent = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverSetOptionProc *setOptionProc;
 
     dprintf("Called");
 
-    setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(downChan));
+    setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(parent));
     if (setOptionProc != NULL) {
-	return (*setOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
+	return (*setOptionProc)(Tcl_GetChannelInstanceData(parent), interp, optionName, optionValue);
     }
     /*
      * Request for a specific option has to fail, we don't have any.
@@ -784,13 +797,14 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
  *
  * TlsGetOptionProc --
  *
- *    Gets an option value for a SSL socket based channel, or a
- *    list of all options and their values.
+ *	Get a option's value for a SSL socket based channel, or a list of all
+ *	options and their values. Called by the generic I/O layer whenever the
+ *	Tcl_GetChannelOption() function is used.
+ *
  *
  * Results:
- *    A standard Tcl result. The value of the specified option or a
- *    list of all options and their values is returned in the
- *    supplied DString.
+ *	A standard Tcl result. The value of the specified option or a list of
+ *	all options and their values is returned in the supplied DString.
  *
  * Side effects:
  *    None.
@@ -805,14 +819,14 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
     Tcl_DString *optionValue)	/* Where to store the computed value initialized by caller. */
 {
     State *statePtr = (State *) instanceData;
-    Tcl_Channel downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    Tcl_Channel parent = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
     Tcl_DriverGetOptionProc *getOptionProc;
 
     dprintf("Called");
 
-    getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(downChan));
+    getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(parent));
     if (getOptionProc != NULL) {
-	return (*getOptionProc)(Tcl_GetChannelInstanceData(downChan), interp, optionName, optionValue);
+	return (*getOptionProc)(Tcl_GetChannelInstanceData(parent), interp, optionName, optionValue);
     } else if (optionName == (char*) NULL) {
 	/*
 	 * Request is query for all options, this is ok.
@@ -826,22 +840,21 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
 }
 
 /*
- *------------------------------------------------------*
+ *-----------------------------------------------------------------------------
  *
  *    TlsChannelHandlerTimer --
  *
- *    ------------------------------------------------*
- *    Called by the notifier (-> timer) to flush out
- *    information waiting in channel buffers.
- *    ------------------------------------------------*
+ *	Called by the notifier via a timer, to flush out data waiting in
+ *	channel buffers. called by the generic I/O layer whenever the
+ *	Tcl_GetChannelHandle() function is used.
  *
- *    Side effects:
- *        As of 'TlsChannelHandler'.
- *
- *    Result:
+ * Results:
  *        None.
  *
- *------------------------------------------------------*
+ * Side effects:
+ *	Creates notification event.
+ *
+ *-----------------------------------------------------------------------------
  */
 static void TlsChannelHandlerTimer(ClientData clientData) {
     State *statePtr = (State *) clientData;
@@ -851,18 +864,21 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
 
     statePtr->timer = (Tcl_TimerToken) NULL;
 
+    /* Check for amount of data pending in BIO write buffer */
     if (BIO_wpending(statePtr->bio)) {
 	dprintf("[chan=%p] BIO writable", statePtr->self);
 
 	mask |= TCL_WRITABLE;
     }
 
+    /* Check for amount of data pending in BIO read buffer */
     if (BIO_pending(statePtr->bio)) {
 	dprintf("[chan=%p] BIO readable", statePtr->self);
 
 	mask |= TCL_READABLE;
     }
 
+    /* Notify event subsystem that the channel is readable or writeable */
     dprintf("Notifying ourselves");
     Tcl_NotifyChannel(statePtr->self, mask);
     statePtr->want = 0;
@@ -873,28 +889,30 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsWatchProc --
  *
- *    Initialize the event notifier to watch for events of interest
- *    from this channel.
+ *	Set up the event notifier to watch for events of interest from this
+ *	channel. Called by the generic I/O layer whenever the user (or the
+ *	system) announces its (dis)interest in events on the channel. This is
+ *	called repeatedly.
  *
  * Results:
  *    None.
  *
  * Side effects:
- *    Sets up the notifier so that a future event on the channel
- *    will be seen by Tcl.
+ *	Sets up the time-based notifier so that future events on the channel
+ *	will be seen by TCL.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static void
 TlsWatchProc(ClientData instanceData,    /* The socket state. */
     int mask)			/* Events of interest; an OR-ed combination of
 				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
-    Tcl_Channel     downChan;
+    Tcl_Channel     parent;
     State *statePtr = (State *) instanceData;
     Tcl_DriverWatchProc *watchProc;
 
@@ -908,14 +926,14 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 	return;
     }
 
-    downChan = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
+    parent = Tls_GetParent(statePtr, TLS_TCL_FASTPATH);
 
     if (statePtr->flags & TLS_TCL_HANDSHAKE_FAILED) {
 	dprintf("Asked to watch a socket with a failed handshake -- nothing can happen here");
 	dprintf("Unregistering interest in the lower channel");
 
-	watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(downChan));
-	watchProc(Tcl_GetChannelInstanceData(downChan), 0);
+	watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(parent));
+	watchProc(Tcl_GetChannelInstanceData(parent), 0);
 	statePtr->watchMask = 0;
 	return;
     }
@@ -929,9 +947,9 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
      * to. But this transformation has no such interest. It just passes
      * the request down, unchanged.
      */
-    dprintf("Registering our interest in the lower channel (chan=%p)", (void *) downChan);
-    watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(downChan));
-    watchProc(Tcl_GetChannelInstanceData(downChan), mask);
+    dprintf("Registering our interest in the lower channel (chan=%p)", (void *) parent);
+    watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(parent));
+    watchProc(Tcl_GetChannelInstanceData(parent), mask);
 
 
     /*
@@ -955,12 +973,12 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsGetHandleProc --
  *
- *    This procedure is invoked by the generic IO level to retrieve a
- *    device-specific handle from the SSL socket based channel.
+ *	This procedure is invoked by the generic IO level to retrieve an OS
+ *	specific handle associated with the channel. Not used for transforms.
  *
  * Results:
  *    The appropriate Tcl_File handle or NULL if none.
@@ -968,7 +986,7 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
  * Side effects:
  *    None.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
     int direction,		/* TCL_READABLE or TCL_WRITABLE */
@@ -980,14 +998,14 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * TlsNotifyProc --
  *
- *    This procedure is invoked by the generic IO level to notify the
- *    channel that an event occurred. It is used by stacked channel
- *    drivers that wish to be notified of events that occur on the
- *    underlying (stacked) channel.
+ *	This procedure is invoked by the generic IO level to notify the channel
+ *	that an event has occurred on the underlying channel. It is used by stacked channel drivers that
+ *	wish to be notified of events that occur on the underlying (stacked)
+ *	channel.
  *
  * Results:
  *    Type of event or 0 if failed
@@ -995,7 +1013,7 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
  * Side effects:
  *    May process the incoming event by itself.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
     int mask)			/* type of event that occurred:
@@ -1007,18 +1025,13 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
     dprintf("Called");
 
     /*
-     * An event occurred in the underlying channel.  This
-     * transformation doesn't process such events thus returns the
-     * incoming mask unchanged.
+     * Delete an existing timer. It was not fired, yet we are
+     * here, so the channel below generated such an event and we
+     * don't have to. The renewal of the interest after the
+     * execution of channel handlers will eventually cause us to
+     * recreate the timer (in WatchProc).
      */
     if (statePtr->timer != (Tcl_TimerToken) NULL) {
-	/*
-	 * Delete an existing timer. It was not fired, yet we are
-	 * here, so the channel below generated such an event and we
-	 * don't have to. The renewal of the interest after the
-	 * execution of channel handlers will eventually cause us to
-	 * recreate the timer (in WatchProc).
-	 */
 	Tcl_DeleteTimerHandler(statePtr->timer);
 	statePtr->timer = (Tcl_TimerToken) NULL;
     }
@@ -1046,23 +1059,28 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 
     dprintf("Returning %i", mask);
 
+    /*
+     * An event occurred in the underlying channel.  This
+     * transformation doesn't process such events thus returns the
+     * incoming mask unchanged.
+     */
     return mask;
 }
 
 /*
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  *
  * Tls_ChannelType --
  *
- *    Return the correct TLS channel driver info
+ *	Defines the correct TLS channel driver handlers for this channel type.
  *
  * Results:
- *    The correct channel driver for the current version of Tcl.
+ *	Tcl_ChannelType structure.
  *
  * Side effects:
  *    None.
  *
- *-------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
  */
 static const Tcl_ChannelType tlsChannelType = {
     "tls",			/* Type name */

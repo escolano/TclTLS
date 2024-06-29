@@ -20,7 +20,10 @@
 
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * String_to_Hex --
+ *
  *	Format contents of a binary string as a hex string
  *
  * Results:
@@ -29,6 +32,7 @@
  * Side Effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
     unsigned char *iptr = input;
@@ -49,7 +53,10 @@ Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * BIO_to_Buffer --
+ *
  *	Output contents of a BIO to a buffer
  *
  * Results:
@@ -58,6 +65,7 @@ Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Size BIO_to_Buffer(int result, BIO *bio, void *output, int olen) {
     Tcl_Size len = 0;
@@ -74,7 +82,10 @@ Tcl_Size BIO_to_Buffer(int result, BIO *bio, void *output, int olen) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Extensions --
+ *
  *	Get list of X.509 Certificate Extensions
  *
  * Results:
@@ -83,6 +94,7 @@ Tcl_Size BIO_to_Buffer(int result, BIO *bio, void *output, int olen) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
     const STACK_OF(X509_EXTENSION) *exts;
@@ -105,7 +117,10 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Identifier --
+ *
  *	Get X.509 certificate Authority or Subject Key Identifiers
  *
  * Results:
@@ -114,6 +129,7 @@ Tcl_Obj *Tls_x509Extensions(Tcl_Interp *interp, X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509Identifier(const ASN1_OCTET_STRING *astring) {
     Tcl_Obj *resultObj = NULL;
@@ -126,7 +142,10 @@ Tcl_Obj *Tls_x509Identifier(const ASN1_OCTET_STRING *astring) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509KeyUsage --
+ *
  *	Get X.509 certificate key usage types
  *
  * Results:
@@ -135,6 +154,7 @@ Tcl_Obj *Tls_x509Identifier(const ASN1_OCTET_STRING *astring) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
     uint32_t usage = X509_get_key_usage(cert);
@@ -179,7 +199,10 @@ Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Purpose --
+ *
  *	Get X.509 certificate purpose
  *
  * Results:
@@ -188,6 +211,7 @@ Tcl_Obj *Tls_x509KeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 char *Tls_x509Purpose(X509 *cert) {
     char *purpose = NULL;
@@ -217,7 +241,10 @@ char *Tls_x509Purpose(X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Purposes --
+ *
  *	Get X.509 certificate purpose types
  *
  * Results:
@@ -226,6 +253,7 @@ char *Tls_x509Purpose(X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
     Tcl_Obj *resultObj = Tcl_NewListObj(0, NULL);
@@ -250,7 +278,10 @@ Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Names --
+ *
  *	Get a list of Subject Alternate Names (SAN) or Issuer Alternate Names
  *
  * Results:
@@ -259,6 +290,7 @@ Tcl_Obj *Tls_x509Purposes(Tcl_Interp *interp, X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509Names(Tcl_Interp *interp, X509 *cert, int nid, BIO *bio) {
     STACK_OF(GENERAL_NAME) *names;
@@ -283,7 +315,10 @@ Tcl_Obj *Tls_x509Names(Tcl_Interp *interp, X509 *cert, int nid, BIO *bio) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509ExtKeyUsage --
+ *
  *	Get a list of Extended Key Usages
  *
  * Returns:
@@ -292,6 +327,7 @@ Tcl_Obj *Tls_x509Names(Tcl_Interp *interp, X509 *cert, int nid, BIO *bio) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
     uint32_t usage = X509_get_key_usage(cert);
@@ -338,7 +374,10 @@ Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509CrlDp --
+ *
  *	Get list of CRL Distribution Points
  *
  * Returns:
@@ -347,6 +386,7 @@ Tcl_Obj *Tls_x509ExtKeyUsage(Tcl_Interp *interp, X509 *cert, uint32_t xflags) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
     STACK_OF(DIST_POINT) *crl;
@@ -387,7 +427,10 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509Oscp
+ *
  *	Get list of On-line Certificate Status Protocol (OSCP) URIs
  *
  * Results:
@@ -396,6 +439,7 @@ Tcl_Obj *Tls_x509CrlDp(Tcl_Interp *interp, X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509Oscp(Tcl_Interp *interp, X509 *cert) {
     STACK_OF(OPENSSL_STRING) *ocsp;
@@ -415,7 +459,10 @@ Tcl_Obj *Tls_x509Oscp(Tcl_Interp *interp, X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_x509CaIssuers --
+ *
  *	Get list of Certificate Authority (CA) Issuer URIs
  *
  * Results:
@@ -424,6 +471,7 @@ Tcl_Obj *Tls_x509Oscp(Tcl_Interp *interp, X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
     STACK_OF(ACCESS_DESCRIPTION) *ads;
@@ -454,7 +502,10 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
 }
 
 /*
+ *-----------------------------------------------------------------------------
+ *
  * Tls_NewX509Obj --
+ *
  *	Parses a X509 certificate and returns contents as a key-value Tcl list.
  *
  * Result:
@@ -463,6 +514,7 @@ Tcl_Obj *Tls_x509CaIssuers(Tcl_Interp *interp, X509 *cert) {
  * Side effects:
  *	None
  *
+ *-----------------------------------------------------------------------------
  */
 Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
     Tcl_Obj *resultObj = Tcl_NewListObj(0, NULL);

@@ -189,8 +189,8 @@ typedef struct State {
 	BIO *bio;		/* Struct for SSL processing */
 	BIO *p_bio;		/* Parent BIO (that is layered on Tcl_Channel) */
 
-	unsigned char *protos;	/* List of supported protocols in protocol format */
 	unsigned int protos_len; /* Length of protos */
+	unsigned char *protos;	/* List of supported protocols in protocol format */
 
 	const char *err;
 } State;
@@ -221,6 +221,7 @@ void            Tls_Clean(State *statePtr);
 int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 
 BIO             *BIO_new_tcl(State* statePtr, int flags);
+int		BIO_cleanup();
 
 #define PTR2INT(x) ((int) ((intptr_t) (x)))
 

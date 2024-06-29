@@ -1,12 +1,38 @@
 /*
- * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
+ * Provides Custom BIO layer to interface OpenSSL with TCL. These
+ * functions directly interface between the IO channel and BIO buffers.
  *
- * Provides BIO layer to interface OpenSSL to TCL.
+ * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
+ * Copyright (C) 2024 Brian O'Hagan
+ *
  */
 
 #include "tlsInt.h"
+#include <openssl/bio.h>
 
-/* Called by SSL_write() */
+/* Define BIO methods structure */
+static BIO_METHOD *BioMethods = NULL;
+
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioWrite --
+ *
+ *	This function is used to read encrypted data from the BIO and write it
+ *	into the socket. This function will be called in response to the
+ *	application calling BIO_write_ex() or BIO_write().
+ *
+ * Results:
+ *	Returns the number of bytes written to channel, 0 for EOF, or
+ *	-1 for error.
+ *
+ * Side effects:
+ *	Writes BIO data to channel.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
 static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     Tcl_Channel chan;
     Tcl_Size ret;
@@ -59,7 +85,25 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     return (int) ret;
 }
 
-/* Called by SSL_read()*/
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioRead --
+ *
+ *	This function is used to read encrypted data from the socket
+ *	and write it into the BIO. This function will be called in response to
+ *	the application calling BIO_read_ex() or BIO_read().
+ *
+ * Results:
+ *	Returns the number of bytes read from channel, 0 for EOF, or -1 for
+ *	error.
+ *
+ * Side effects:
+ *	Reads channel data into BIO.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
 static int BioRead(BIO *bio, char *buf, int bufLen) {
     Tcl_Channel chan;
     Tcl_Size ret = 0;
@@ -120,11 +164,46 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
     return (int) ret;
 }
 
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioPuts --
+ *
+ *	This function is used to read a NULL terminated string from the BIO and
+ *	write it to the channel. This function will be called in response to
+ *	the application calling BIO_puts().
+ *
+ * Results:
+ *	Returns the number of bytes written to channel or 0 for error.
+ *
+ * Side effects:
+ *	Writes data to channel.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
 static int BioPuts(BIO *bio, const char *str) {
     dprintf("BioPuts(%p, <string:%p>) called", bio, str);
 
     return BioWrite(bio, str, (int) strlen(str));
 }
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioCtrl --
+ *
+ *	This function is used to process control messages in the BIO. This
+ *	function will be called in response to the application calling BIO_ctrl().
+ *
+ * Results:
+ *	Function dependent
+ *
+ * Side effects:
+ *	Function dependent
+ *
+ *-----------------------------------------------------------------------------
+ */
 
 static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
     Tcl_Channel chan;
@@ -224,6 +303,23 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
     return ret;
 }
 
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioNew --
+ *
+ *	This function is used to create a new instance of the BIO. This
+ *	function will be called in response to the application calling BIO_new().
+ *
+ * Results:
+ *	Returns boolean success result (1=success, 0=failure)
+ *
+ * Side effects:
+ *	Initializes BIO structure.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
 static int BioNew(BIO *bio) {
     dprintf("BioNew(%p) called", bio);
 
@@ -232,6 +328,23 @@ static int BioNew(BIO *bio) {
     BIO_clear_flags(bio, -1);
     return 1;
 }
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BioFree --
+ *
+ *	This function is used to destroy an instance of a BIO. This function
+ *	will be called in response to the application calling BIO_free().
+ *
+ * Results:
+ *	Returns boolean success result
+ *
+ * Side effects:
+ *	Initializes BIO structure.
+ *
+ *-----------------------------------------------------------------------------
+ */
 
 static int BioFree(BIO *bio) {
     if (bio == NULL) {
@@ -252,9 +365,24 @@ static int BioFree(BIO *bio) {
     return 1;
 }
 
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BIO_new_tcl --
+ *
+ *	This function is used to initialize the BIO method handlers.
+ *
+ * Results:
+ *	Returns pointer to BIO or NULL for failure
+ *
+ * Side effects:
+ *	Initializes BIO Methods.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
 BIO *BIO_new_tcl(State *statePtr, int flags) {
     BIO *bio;
-    static BIO_METHOD *BioMethods = NULL;
 #ifdef TCLTLS_SSL_USE_FASTPATH
     Tcl_Channel parentChannel;
     const Tcl_ChannelType *parentChannelType;
@@ -321,4 +449,31 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
     BIO_set_shutdown(bio, flags);
     BIO_set_init(bio, 1);
     return bio;
+}
+
+/*
+ *-----------------------------------------------------------------------------
+ *
+ * BIO_cleanup --
+ *
+ *	This function is used to destroy a BIO_METHOD structure and free up any
+ *	memory associated with it.
+ *
+ * Results:
+ *	Standard TCL result
+ *
+ * Side effects:
+ *	Destroys BIO Methods.
+ *
+ *-----------------------------------------------------------------------------
+ */
+
+int BIO_cleanup () {
+    dprintf("BIO_cleanup() called");
+
+    if (BioMethods != NULL) {
+	BIO_meth_free(BioMethods);
+	BioMethods = NULL;
+    }
+    return TCL_OK;
 }
