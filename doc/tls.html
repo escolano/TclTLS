@@ -455,13 +455,42 @@ used directly.</p>
 
 <h3><a name="CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a></h3>
 
+<h4>Summary of command line options:</h4>
+<p>The following options are used for certificate validation:</p>
+<ul>
+<li>The <b>-cadir</b> option specifies the directory where the Certificate
+Authority (CA) certificates are stored. The default is platform specific, but
+is usually "/etc/ssl/certs" on Linux/Unix systems. The default location can be
+overridden via the <b>SSL_CERT_DIR</b> environment variable.</li>
+<li>The <b>-cafile </b> option specifies the file that contains all of the
+Certificate Authority (CA) certificates in the PEM file format. The default is
+<b>cert.pem</b>, in the OpenSSL directory. On Linux/Unix systems, this is
+usually "/etc/ssl/ca-bundle.pem". The default file can be overridden via the
+<b>SSL_CERT_FILE</b> environment variable.</li>
+<li>The <b>-castore</b> option contains the URI to the Certificate Authority
+(CA) store, which may be a single container or a catalog of containers.
+Starting with OpenSSL 3.2 on Windows, set this to "org.openssl.winstore://" to
+use the built-in Windows Certificate Store. The Windows cert store only
+supports root certificate stores.</li>
+<li>The <b>-request</b> option is used to request the server send its
+certificate chain as part of the connection negotiation process. This is
+needed to do certificate validation. The default is true. In addition, the
+client can manually inspect and accept or reject each certificate using the
+<b>-validatecommand</b> option.</li>
+<li>The <b>-require</b> option is used to require certificate validation be
+performed as part of the connection negotiation process. A valid CA directory,
+file, or store must be present for this to work.</li>
+</ul>
+
+<br>
+<h4>When are command line options needed:</h4>
 <p>
-By default, a client TLS connection is set to NOT request nor validate the
-server certificates. This limitation is due to the lack of a common cross
-platform database of Certificate Authority (CA) provided certificates to
-validate against. Many Linux systems natively support OpenSSL and thus have
-these certificates installed as part of the OS, but MacOS and Windows do not.
-In order to use the <b>-require</b> option, one of the following must be true:</p>
+By default, a client TLS connection does NOT validate the server certificate
+chain. This limitation is due to the lack of a common cross platform
+database of Certificate Authority (CA) provided certificates to validate
+against. Many Linux systems natively support OpenSSL and thus have these
+certificates installed as part of the OS, but MacOS and Windows do not. In
+order to use the <b>-require</b> option, one of the following must be true:</p>
 <ul>
 <li>On Linux and Unix systems with OpenSSL already installed, if the CA
 certificates are stored in the standard locations, or the <b>SSL_CERT_DIR</b>
@@ -479,7 +508,7 @@ setting the <b>-castore</b> option to "<b>org.openssl.winstore://</b>".</li>
 <li>If OpenSSL is not installed, the CA certificates must be downloaded and
 installed with the user software. The CURL team makes them available at
 <a href="https://curl.se/docs/caextract.html">CA certificates extracted
-from Mozilla</a>. Look for the <b>cacert.pem</b> file. You must then either
+from Mozilla</a> in the <b>cacert.pem</b> file. You must then either
 set the <b>SSL_CERT_DIR</b> and/or <b>SSL_CERT_FILE</b> env vars or the
 <b>-cadir</b> or <b>-cafile</b> options must be set to the file's install
 location. It is your responsibility to keep this file up to date.</li>
