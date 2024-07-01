@@ -2824,15 +2824,6 @@ Tls_Free(tls_free_type *blockPtr) {
 void Tls_Clean(State *statePtr) {
     dprintf("Called");
 
-    if (statePtr->ssl) {
-	/* Send close_notify message */
-	dprintf("SSL_shutdown(%p)", statePtr->ssl);
-	/* Will return return 0 while shutdown in process, then 1 when complete */
-	/* closes the write direction of the connection; the read direction is closed by the peer. */
-	/* Does not affect socket */
-	SSL_shutdown(statePtr->ssl);
-    }
-
     /*
      * we're assuming here that we're single-threaded
      */

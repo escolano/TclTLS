@@ -74,8 +74,15 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
     dprintf("TlsCloseProc(%p)", (void *) statePtr);
 
     /* Flush any pending data */
+    
+    /* Send shutdown notification. Will return 0 while in process, then 1 when complete. */
+    /* Closes the write direction of the connection; the read direction is closed by the peer. */
+    /* Does not affect socket state. */
+    if (statePtr->ssl != NULL) {
+	SSL_shutdown(statePtr->ssl);
+    }
 
-    Tls_Clean(statePtr);
+    /* Tls_Free calls Tls_Clean */
     Tcl_EventuallyFree((ClientData)statePtr, Tls_Free);
     return 0;
 }
