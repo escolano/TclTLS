@@ -316,26 +316,20 @@ proc tls::_accept { iopts callback chan ipaddr port } {
 }
 
 #
-# Sample callback for hooking: -
+# Sample callback for status data from OpenSSL
 #
-# error
-# verify
-# info
-#
-proc tls::callback {option args} {
+proc tls::callback {option chan args} {
     variable debug
-
-    #log 2 [concat $option $args]
 
     switch -- $option {
 	"error" {
-	    foreach {chan msg} $args break
+	    lassign $args msg
 
 	    log 0 "TLS/$chan: error: $msg"
 	}
 	"info" {
-	    # poor man's lassign
-	    foreach {chan major minor msg type} $args break
+	    set type ""
+	    lassign $args major minor msg type
 
 	    if {$msg != ""} {
 		append state ": $msg"
@@ -347,19 +341,21 @@ proc tls::callback {option args} {
 	    log 2 "TLS/$chan: $major/$minor: $state"
 	}
 	"message" {
-	    # poor man's lassign
-	    foreach {chan direction version content_type msg} $args break
+	    lassign $args direction version content_type msg
 
 	    log 0 "TLS/$chan: info: $direction $msg"
 	}
 	"session" {
-	    foreach {chan session_id ticket lifetime} $args break
+	    lassign $args session_id ticket lifetime
 
 	    log 0 "TLS/$chan: session: lifetime $lifetime"
 	}
+	"verify" {
+	    return [tls::validate_command $option $chan {*}$args]
+	}
 	default	{
 	    return -code error "bad option \"$option\":\
-		    must be one of error, info, or session"
+		    must be one of error, info, message, or session"
 	}
     }
 }
@@ -367,30 +363,27 @@ proc tls::callback {option args} {
 #
 # Sample callback when return value is needed
 #
-proc tls::validate_command {option args} {
+proc tls::validate_command {option chan args} {
     variable debug
-
-    #log 2 [concat $option $args]
 
     switch -- $option {
 	"alpn" {
-	    foreach {chan protocol match} $args break
+	    lassign $args protocol match
 
 	    log 0 "TLS/$chan: alpn: $protocol $match"
 	}
 	"hello" {
-	    foreach {chan servername} $args break
+	   lassign $args servername
 
 	    log 0 "TLS/$chan: hello: $servername"
 	}
 	"sni" {
-	    foreach {chan servername} $args break
+	    lassign $args servername
 
 	    log 0 "TLS/$chan: sni: $servername"
 	}
 	"verify" {
-	    # poor man's lassign
-	    foreach {chan depth cert rc err} $args break
+	    lassign $args depth cert rc err
 
 	    array set c $cert
 
@@ -407,7 +400,7 @@ proc tls::validate_command {option args} {
 	}
 	default	{
 	    return -code error "bad option \"$option\":\
-		    must be one of alpn, info, or verify"
+		    must be one of alpn, hello, sni, or verify"
 	}
     }
     return 1
@@ -431,7 +424,7 @@ proc tls::xhandshake {chan} {
     }
 }
 
-proc tls::password {rwflag size} {
+proc tls::password {{option password} {rwflag 0} {size 0}} {
     log 0 "TLS/Password: did you forget to set your passwd!"
     # Return the worlds best kept secret password.
     return "secret"
