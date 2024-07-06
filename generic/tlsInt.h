@@ -17,8 +17,10 @@
 #define _TLSINT_H
 
 /* Platform unique definitions */
-#ifdef _WIN32
+#if ((defined(_WIN32)) || (defined(__MINGW32__)) || (defined(__MINGW64__)))
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #include <wincrypt.h> /* OpenSSL needs this on Windows */
 #endif
@@ -146,11 +148,6 @@
 }
 
 /*
- * OpenSSL BIO Routines
- */
-#define BIO_TYPE_TCL	(19|0x0400)
-
-/*
  * Defines for State.flags
  */
 #define TLS_TCL_ASYNC		(1<<0)	/* non-blocking mode */
@@ -160,7 +157,7 @@
 #define TLS_TCL_CALLBACK	(1<<4)	/* In a callback, prevent update
 					 * looping problem. [Bug 1652380] */
 #define TLS_TCL_HANDSHAKE_FAILED (1<<5) /* Set on handshake failures and once set, all
-                                         * further I/O will result in ECONNABORTED errors. */
+					 * further I/O will result in ECONNABORTED errors. */
 #define TLS_TCL_FASTPATH 	(1<<6)	/* The parent channel is being used directly by the SSL library */
 #define TLS_TCL_DELAY (5)
 

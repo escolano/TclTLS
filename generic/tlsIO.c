@@ -21,6 +21,15 @@
  *
  */
 
+/*
+		tlsBIO.c				tlsIO.c
+  +------+                         +-----+                                     +------+
+  |      |Tcl_WriteRaw <-- BioWrite| SSL |BIO_write <-- TlsOutputProc <-- Write|      |
+  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  | 
+  |      |Tcl_ReadRaw  -->  BioRead|     |BIO_Read  --> TlsInputProc  -->  Read|      |
+  +------+                         +-----+                                     +------+
+*/
+
 #include "tlsInt.h"
 #include <errno.h>
 
@@ -59,6 +68,8 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *
  *	This procedure is invoked by the generic IO level to perform channel
  *	type specific cleanup when a SSL socket based channel is closed.
+ *	Called by the generic I/O layer whenever the Tcl_Close() function is
+ *	used.
  *
  * Results:
  *    0 if successful or POSIX error code if failed.
@@ -74,11 +85,11 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
     dprintf("TlsCloseProc(%p)", (void *) statePtr);
 
     /* Flush any pending data */
-    
+
     /* Send shutdown notification. Will return 0 while in process, then 1 when complete. */
     /* Closes the write direction of the connection; the read direction is closed by the peer. */
-    /* Does not affect socket state. */
-    if (statePtr->ssl != NULL) {
+    /* Does not affect socket state. Don't call after fatal error. */
+    if (statePtr->ssl != NULL && !(statePtr->flags & TLS_TCL_HANDSHAKE_FAILED)) {
 	SSL_shutdown(statePtr->ssl);
     }
 
@@ -160,6 +171,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
     for (;;) {
 	ERR_clear_error();
+	BIO_clear_retry_flags(statePtr->bio);
 
 	/* Not initialized yet! Also calls SSL_do_handshake(). */
 	if (statePtr->flags & TLS_TCL_SERVER) {
@@ -171,6 +183,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    err = SSL_connect(statePtr->ssl);
 	}
 
+	/* 1=successful, 0=not successful and shut down, <0=fatal error */
 	if (err > 0) {
 	    dprintf("Accept or connect was successful");
 
@@ -182,6 +195,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("Accept or connect failed");
 	}
 
+	/* Same as SSL_want, but also checks the error queue */
 	rc = SSL_get_error(statePtr->ssl, err);
 	backingError = ERR_get_error();
 	if (rc != SSL_ERROR_NONE) {
@@ -189,23 +203,21 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("Got error: %s", ERR_reason_error_string(backingError));
 	}
 
-	bioShouldRetry = 0;
+	/* The retry flag is set by the BIO_set_retry_* functions */
+	bioShouldRetry = BIO_should_retry(statePtr->bio);
+
 	if (err <= 0) {
 	    if (rc == SSL_ERROR_WANT_CONNECT || rc == SSL_ERROR_WANT_ACCEPT) {
 		bioShouldRetry = 1;
 	    } else if (rc == SSL_ERROR_WANT_READ) {
 		bioShouldRetry = 1;
-		statePtr->want = TCL_READABLE;
+		statePtr->want |= TCL_READABLE;
 	    } else if (rc == SSL_ERROR_WANT_WRITE) {
 		bioShouldRetry = 1;
-		statePtr->want = TCL_WRITABLE;
+		statePtr->want |= TCL_WRITABLE;
 	    } else if (BIO_should_retry(statePtr->bio)) {
 		bioShouldRetry = 1;
 	    } else if (rc == SSL_ERROR_SYSCALL && Tcl_GetErrno() == EAGAIN) {
-		bioShouldRetry = 1;
-	    }
-	} else {
-	    if (!SSL_is_init_finished(statePtr->ssl)) {
 		bioShouldRetry = 1;
 	    }
 	}
@@ -230,7 +242,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
     switch (rc) {
 	case SSL_ERROR_NONE:
-	    /* The TLS/SSL I/O operation completed */
+	    /* The TLS/SSL I/O operation completed successfully */
 	    dprintf("The connection is good");
 	    *errorCodePtr = 0;
 	    break;
@@ -278,22 +290,68 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    return -1;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* The TLS/SSL peer has closed the connection for writing by sending the close_notify alert */
+	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
+	    /* Need to return an EOF, so channel is closed which will send an SSL_shutdown(). */
 	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
-	    *errorCodePtr = EINVAL;
+	    *errorCodePtr = ECONNRESET;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    return -1;
 
 	case SSL_ERROR_WANT_READ:
+	    /* More data must be read from the underlying BIO layer in order to complete the actual SSL_*() operation.  */
+	    dprintf("SSL_ERROR_WANT_READ");
+	    BIO_set_retry_read(statePtr->bio);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    statePtr->want |= TCL_READABLE;
+	    return -1;
+
 	case SSL_ERROR_WANT_WRITE:
-	case SSL_ERROR_WANT_X509_LOOKUP:
+	    /* There is data in the SSL buffer that must be written to the underlying BIO in order to complete the SSL_*() operation. */
+	    dprintf("SSL_ERROR_WANT_WRITE");
+	    BIO_set_retry_write(statePtr->bio);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    statePtr->want |= TCL_WRITABLE;
+	    return -1;
+
 	case SSL_ERROR_WANT_CONNECT:
+	    /* Connect would have blocked. */
+	    dprintf("SSL_ERROR_WANT_CONNECT");
+	    BIO_set_retry_special(statePtr->bio);
+	    BIO_set_retry_reason(statePtr->bio, BIO_RR_CONNECT);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    return -1;
+
 	case SSL_ERROR_WANT_ACCEPT:
+	    /* Accept would have blocked */
+	    dprintf("SSL_ERROR_WANT_ACCEPT");
+	    BIO_set_retry_special(statePtr->bio);
+	    BIO_set_retry_reason(statePtr->bio, BIO_RR_ACCEPT);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    return -1;
+
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	    /* App callback set by SSL_CTX_set_client_cert_cb has asked to be called again */
+	    /* The operation did not complete because an application callback set by SSL_CTX_set_client_cert_cb() has asked to be called again. */
+	    dprintf("SSL_ERROR_WANT_X509_LOOKUP");
+	    BIO_set_retry_special(statePtr->bio);
+	    BIO_set_retry_reason(statePtr->bio, BIO_RR_SSL_X509_LOOKUP);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    return -1;
+
 	case SSL_ERROR_WANT_ASYNC:
+	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an async engine is still processing data */
 	case SSL_ERROR_WANT_ASYNC_JOB:
+	    /* The asynchronous job could not be started because there were no async jobs available in the pool. */
 	case SSL_ERROR_WANT_CLIENT_HELLO_CB:
+	    /* The operation did not complete because an application callback set by SSL_CTX_set_client_hello_cb() has asked to be called again. */
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 	case SSL_ERROR_WANT_RETRY_VERIFY:
+	    /* The operation did not complete because a certificate verification callback has asked to be called again via SSL_set_retry_verify(3). */
 #endif
 	default:
 	    /* The operation did not complete and should be retried later. */
@@ -317,10 +375,9 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *
  * TlsInputProc --
  *
- *	This procedure is invoked by the generic IO level to read data from the
- *	BIo. Equivalent to SSL_read.
- *	Called by the generic I/O layer whenever the Tcl_Read(), Tcl_ReadChars,
- *	Tcl_Gets, and Tcl_GetsObj functions are used.
+ *	This procedure is invoked by the generic I/O layer to read data from
+ *	the BIO whenever the Tcl_Read(), Tcl_ReadChars, Tcl_Gets, and
+ *	Tcl_GetsObj functions are used. Equivalent to SSL_read_ex and SSL_read.
  *
  * Results:
  *	Returns the number of bytes read or -1 on error. Sets errorCodePtr to
@@ -328,6 +385,10 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *
  * Side effects:
  *    Reads input from the input device of the channel.
+ *
+ * Data is received in whole blocks known as records from the peer. A whole
+ * record is processed (e.g. decrypted) in one go and is buffered by OpenSSL
+ * until it is read by the application via a call to SSL_read. 
  *
  *-----------------------------------------------------------------------------
  */
@@ -346,6 +407,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
     }
 
     /* If not initialized, do connect */
+    /* Can also check SSL_is_init_finished(ssl) */
     if (statePtr->flags & TLS_TCL_INIT) {
 	int tlsConnect;
 
@@ -379,28 +441,33 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
      * correctly.  Similar fix in TlsOutputProc. - hobbs
      */
     ERR_clear_error();
-    /* BIO_read, where 0 means EOF and -1 means error */
+    BIO_clear_retry_flags(statePtr->bio);
     bytesRead = BIO_read(statePtr->bio, buf, bufSize);
     dprintf("BIO_read -> %d", bytesRead);
 
-    /* Get error is more comprehensive than SSL_want */
+    /* Same as SSL_want, but also checks the error queue */
     err = SSL_get_error(statePtr->ssl, bytesRead);
     backingError = ERR_get_error();
 
     if (bytesRead <= 0) {
+	/* The retry flag is set by the BIO_set_retry_* functions */
 	if (BIO_should_retry(statePtr->bio)) {
 	    dprintf("Read failed with code=%d, bytes read=%d: should retry", err, bytesRead);
 	    /* Some docs imply we should redo the BIO_read now */
 	} else {
 	    dprintf("Read failed with code=%d, bytes read=%d: error condition", err, bytesRead);
 	}
+
+	dprintf("BIO is EOF %d", BIO_eof(statePtr->bio));
 	
 	/* These are the same as BIO_retry_type */
 	if (BIO_should_read(statePtr->bio)) {
 	    dprintf("BIO has insufficient data to read and return");
+	    statePtr->want |= TCL_READABLE;
 	}
 	if (BIO_should_write(statePtr->bio)) {
 	    dprintf("BIO has pending data to write");
+	    statePtr->want |= TCL_WRITABLE;
 	}
 	if (BIO_should_io_special(statePtr->bio)) {
 	    int reason = BIO_get_retry_reason(statePtr->bio);
@@ -445,8 +512,9 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
-	    statePtr->want = TCL_READABLE;
+	    statePtr->want |= TCL_READABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
+	    BIO_set_retry_read(statePtr->bio);
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
@@ -454,8 +522,9 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
-	    statePtr->want = TCL_WRITABLE;
+	    statePtr->want |= TCL_WRITABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
+	    BIO_set_retry_write(statePtr->bio);
 	    break;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
@@ -493,6 +562,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 
 	case SSL_ERROR_ZERO_RETURN:
 	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
+	    /* Need to return an EOF, so channel is closed which will send an SSL_shutdown(). */
 	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
 	    bytesRead = 0;
 	    *errorCodePtr = 0;
@@ -524,10 +594,9 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *
  * TlsOutputProc --
  *
- *	This procedure is invoked by the generic IO level to write data to
- *	the BIO. Equivalent to SSL_write. Called by the
- *	generic I/O layer whenever the Tcl_Write(), Tcl_WriteChars,
- *	TTcl_WriteObj functions are used.
+ *	This procedure is invoked by the generic I/O layer to write data to the
+ *	BIO whenever the the Tcl_Write(), Tcl_WriteChars, and Tcl_WriteObj 
+ *	functions are used. Equivalent to SSL_write_ex and SSL_write.
  *
  * Results:
  *    Returns the number of bytes written or -1 on error. Sets errorCodePtr
@@ -556,6 +625,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
     }
 
     /* If not initialized, do connect */
+    /* Can also check SSL_is_init_finished(ssl) */
     if (statePtr->flags & TLS_TCL_INIT) {
 	int tlsConnect;
 
@@ -607,21 +677,22 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
      * work correctly.  Similar fix in TlsInputProc. - hobbs
      */
     ERR_clear_error();
-    /* SSL_write will return 1 for success or 0 for failure */
+    BIO_clear_retry_flags(statePtr->bio);
     written = BIO_write(statePtr->bio, buf, toWrite);
     dprintf("BIO_write(%p, %d) -> [%d]", (void *) statePtr, toWrite, written);
 
-    /* Get error is more comprehensive than SSL_want */
+    /* Same as SSL_want, but also checks the error queue */
     err = SSL_get_error(statePtr->ssl, written);
     backingError = ERR_get_error();
 
     if (written <= 0) {
+	/* The retry flag is set by the BIO_set_retry_* functions */
 	if (BIO_should_retry(statePtr->bio)) {
 	    dprintf("Write failed with code %d, bytes written=%d: should retry", err, written);
 	} else {
 	    dprintf("Write failed with code %d, bytes written=%d: error condition", err, written);
 	}
-	
+
 	/* These are the same as BIO_retry_type */
 	if (BIO_should_read(statePtr->bio)) {
 	    dprintf("BIO has insufficient data to read and return");
@@ -667,8 +738,9 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
-	    statePtr->want = TCL_READABLE;
+	    statePtr->want |= TCL_READABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
+	    BIO_set_retry_read(statePtr->bio);
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
@@ -676,8 +748,9 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
-	    statePtr->want = TCL_WRITABLE;
+	    statePtr->want |= TCL_WRITABLE;
 	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
+	    BIO_set_retry_write(statePtr->bio);
 	    break;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
@@ -714,6 +787,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 
 	case SSL_ERROR_ZERO_RETURN:
 	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
+	    /* Need to return an EOF, so channel is closed which will send an SSL_shutdown(). */
 	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
 	    written = 0;
 	    *errorCodePtr = 0;
@@ -789,6 +863,7 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
 
     dprintf("Called");
 
+    /* Pass to parent */
     setOptionProc = Tcl_ChannelSetOptionProc(Tcl_GetChannelType(parent));
     if (setOptionProc != NULL) {
 	return (*setOptionProc)(Tcl_GetChannelInstanceData(parent), interp, optionName, optionValue);
@@ -831,6 +906,7 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
 
     dprintf("Called");
 
+    /* Pass to parent */
     getOptionProc = Tcl_ChannelGetOptionProc(Tcl_GetChannelType(parent));
     if (getOptionProc != NULL) {
 	return (*getOptionProc)(Tcl_GetChannelInstanceData(parent), interp, optionName, optionValue);
@@ -885,7 +961,7 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
 	mask |= TCL_READABLE;
     }
 
-    /* Notify event subsystem that the channel is readable or writeable */
+    /* Notify the generic IO layer that the mask events have occurred on the channel */
     dprintf("Notifying ourselves");
     Tcl_NotifyChannel(statePtr->self, mask);
     statePtr->want = 0;
@@ -922,6 +998,7 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
     Tcl_Channel     parent;
     State *statePtr = (State *) instanceData;
     Tcl_DriverWatchProc *watchProc;
+    int pending = 0;
 
     dprintf("TlsWatchProc(0x%x)", mask);
     dprintFlags(statePtr);
@@ -958,24 +1035,25 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
     watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(parent));
     watchProc(Tcl_GetChannelInstanceData(parent), mask);
 
+    /* Do we have any pending events */
+    pending = (statePtr->want || \
+	((mask & TCL_READABLE) && ((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) ||
+	((mask & TCL_WRITABLE) && ((Tcl_OutputBuffered(statePtr->self) > 0) || (BIO_ctrl_wpending(statePtr->bio) > 0))));
 
-    /*
-     * Management of the internal timer.
-     */
-    if (statePtr->timer != (Tcl_TimerToken) NULL) {
-	dprintf("A timer was found, deleting it");
-	Tcl_DeleteTimerHandler(statePtr->timer);
-	statePtr->timer = (Tcl_TimerToken) NULL;
-    }
+    if (!(mask & TCL_READABLE) || pending == 0) {
+	/* Remove timer, if any */
+	if (statePtr->timer != (Tcl_TimerToken) NULL) {
+	    dprintf("A timer was found, deleting it");
+	    Tcl_DeleteTimerHandler(statePtr->timer);
+	    statePtr->timer = (Tcl_TimerToken) NULL;
+	}
 
-    if (statePtr->want || ((mask & TCL_READABLE) &&
-	((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0)))) {
-	/*
-	 * There is interest in readable events and we actually have
-	 * data waiting, so generate a timer to flush that.
-	 */
-	dprintf("Creating a new timer since data appears to be waiting");
-	statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+    } else {
+	/* Add timer, if none */
+	if (statePtr->timer == (Tcl_TimerToken) NULL) {
+	    dprintf("Creating a new timer since data appears to be waiting");
+	    statePtr->timer = Tcl_CreateTimerHandler(TLS_TCL_DELAY, TlsChannelHandlerTimer, (ClientData) statePtr);
+	}
     }
 }
 

@@ -1226,7 +1226,7 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
     Tcl_SetObjResult(interp, Tcl_NewIntObj(ret));
     return TCL_OK;
 }
-
+
 /*
  *-------------------------------------------------------------------
  *
@@ -1380,6 +1380,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     statePtr->flags	= flags;
     statePtr->interp	= interp;
+    statePtr->want	= 0;
     statePtr->vflags	= verify;
     statePtr->err	= "";
 
@@ -1454,7 +1455,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Ensure the channel works in binary mode (for the encryption not to get goofed up). */
     Tcl_SetChannelOption(interp, chan, "-translation", "binary");
     Tcl_SetChannelOption(interp, chan, "-blocking", "true");
-    
+
     /* Create stacked channel */
     dprintf("Consuming Tcl channel %s", Tcl_GetChannelName(chan));
     statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), (ClientData) statePtr,
@@ -1623,9 +1624,6 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	    SSL_verify_client_post_handshake(statePtr->ssl);
 	}
 
-	/* set automatic curve selection */
-	SSL_set_ecdh_auto(statePtr->ssl, 1);
-
 	/* Set server mode */
 	statePtr->flags |= TLS_TCL_SERVER;
 	SSL_set_accept_state(statePtr->ssl);
@@ -1653,6 +1651,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     /* Set BIO for read and write operations on SSL object */
     SSL_set_bio(statePtr->ssl, statePtr->p_bio, statePtr->p_bio);
     BIO_set_ssl(statePtr->bio, statePtr->ssl, BIO_NOCLOSE);
+    BIO_set_ssl_mode(statePtr->bio, (long) !server);
 
     /*
      * End of SSL Init
@@ -1711,7 +1710,8 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
     }
 
     /* Flush any pending data */
-    if (Tcl_Flush(chan) != TCL_OK) {
+    if (Tcl_OutputBuffered(chan) > 0 && Tcl_Flush(chan) != TCL_OK) {
+	Tcl_AppendResult(interp, "can't flush channel", (char *) NULL);
 	return TCL_ERROR;
     }
 
@@ -1913,8 +1913,8 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     /* Disable attempts to try to process the next record instead of returning after a
        non-app record. Avoids hangs in blocking mode, when using SSL_read() and a
-       non-application record was sent and no application data was sent. */
-    SSL_CTX_clear_mode(ctx, SSL_MODE_AUTO_RETRY);
+       non-application record was sent without any application data. */
+    /*SSL_CTX_clear_mode(ctx, SSL_MODE_AUTO_RETRY);*/
 
     SSL_CTX_sess_set_cache_size(ctx, 128);
 
@@ -1929,6 +1929,9 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	SSL_CTX_free(ctx);
 	return NULL;
     }
+
+    /* set automatic curve selection */
+    SSL_CTX_set_ecdh_auto(ctx, 1);
 
     /* Set security level */
     if (level > -1 && level < 6) {
@@ -2103,7 +2106,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    }
 	    Tcl_DStringFree(&ds);
 	}
-	
+
 	/* Set URI for to a store, which may be a single container or a catalog of containers. */
 	if (CAstore != NULL) {
 	    if (!SSL_CTX_load_verify_store(ctx, F2N(CAstore, &ds))) {
@@ -2111,7 +2114,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    }
 	    Tcl_DStringFree(&ds);
 	}
-	
+
 	/* Set file of CA certificates in PEM format.  */
 	if (CAfile != NULL) {
 	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
@@ -2128,7 +2131,6 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
 #endif
     }
-
     return ctx;
 }
 
@@ -2316,7 +2318,7 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
 
 	/* Initialization finished */
 	LAPPEND_BOOL(interp, objPtr, "init_finished", SSL_is_init_finished(ssl));
-	
+
 	/* connection state */
 	LAPPEND_STR(interp, objPtr, "state", SSL_state_string_long(ssl), -1);
 
@@ -3006,7 +3008,7 @@ static int TlsLibInit() {
 
 	/* Create BIO handlers */
 	BIO_new_tcl(NULL, 0);
-	
+
 	/* Create exit handler */
 	Tcl_CreateExitHandler(TlsLibShutdown, NULL);
 	initialized = 1;
