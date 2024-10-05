@@ -116,7 +116,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	dnl Set SSL files root path
 	AC_ARG_WITH([openssl-dir],
 		AS_HELP_STRING([--with-openssl-dir=<dir>],
-			[path to root directory of OpenSSL or LibreSSL installation]
+			[path to root directory of OpenSSL installation]
 		), [
 			openssldir="$withval"
 		], [
@@ -129,7 +129,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	dnl Set SSL include files path
 	AC_ARG_WITH([openssl-includedir],
 		AS_HELP_STRING([--with-openssl-includedir=<dir>],
-			[path to include directory of OpenSSL or LibreSSL installation]
+			[path to include directory of OpenSSL installation]
 		), [
 			opensslincludedir="$withval"
 		], [
@@ -159,7 +159,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	dnl Set SSL lib files path
 	AC_ARG_WITH([openssl-libdir],
 		AS_HELP_STRING([--with-openssl-libdir=<dir>],
-			[path to lib directory of OpenSSL or LibreSSL installation]
+			[path to lib directory of OpenSSL installation]
 		), [
 			openssllibdir="$withval"
 		], [
@@ -196,7 +196,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	dnl Set location of pkgconfig files
 	AC_ARG_WITH([openssl-pkgconfig],
 		AS_HELP_STRING([--with-openssl-pkgconfig=<dir>],
-			[path to pkgconfigdir directory for OpenSSL or LibreSSL]
+			[path to pkgconfigdir directory for OpenSSL]
 		), [
 			opensslpkgconfigdir="$withval"
 		], [
@@ -268,7 +268,7 @@ AC_DEFUN([TCLTLS_SSL_OPENSSL], [
 	fi
 
 	dnl Include config variables in --help list and make available to be substituted via AC_SUBST.
-	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL or LibreSSL])
-	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL or LibreSSL])
+	AC_ARG_VAR([TCLTLS_SSL_CFLAGS], [C compiler flags for OpenSSL])
+	AC_ARG_VAR([TCLTLS_SSL_INCLUDES], [C compiler include paths for OpenSSL])
+	AC_ARG_VAR([TCLTLS_SSL_LIBS], [libraries to pass to the linker for OpenSSL])
 ])

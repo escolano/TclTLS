@@ -5,7 +5,7 @@ Intro
 
 This package provides an extension which implements Secure Socket Layer (SSL)
 and Transport Layer Security (TLS) over Transmission Control Protocol (TCP)
-network communication channels. It utilizes either the OpenSSL or LibreSSL
+network communication channels. It utilizes either the OpenSSL
 software library.
 
 Version 1.9 also provides a cryptography library providing TCL scripts access
@@ -34,14 +34,13 @@ This package requires TCL 8.5 or later.
 
 This package is compatible with:
 - OpenSSL v1.1.1 or later. See (http://www.openssl.org/
-- LibreSSL (TBD version)
 
 
 Installation
 ============
 
 This package uses the Tcl Extension Architecture (TEA) to build and install on
-any supported Unix, Mac, or MS Windows system. Either the OpenSSL or LibreSSL
+any supported Unix, Mac, or MS Windows system. Either the OpenSSL
 software libraries must be built and available prior to building TCL TLS.
 
 UNIX and Linux
@@ -72,10 +71,10 @@ configure options are available. For all options, see ./configure --help.
 
   --with-tcl=<dir>			path to where tclCondig.sh file resides
   --with-tclinclude=<dir>		directory containing the public Tcl header files
-  --with-openssl-dir=<dir>		path to root directory of OpenSSL or LibreSSL installation
-  --with-openssl-includedir=<dir>	path to include directory of OpenSSL or LibreSSL installation
-  --with-openssl-libdir=<dir>		path to lib directory of OpenSSL or LibreSSL installation
-  --with-openssl-pkgconfig=<dir>	path to root directory of OpenSSL or LibreSSL pkgconfigdir
+  --with-openssl-dir=<dir>		path to root directory of OpenSSL installation
+  --with-openssl-includedir=<dir>	path to include directory of OpenSSL installation
+  --with-openssl-libdir=<dir>		path to lib directory of OpenSSL installation
+  --with-openssl-pkgconfig=<dir>	path to root directory of OpenSSL pkg-config directory
 
 
 MacOS
