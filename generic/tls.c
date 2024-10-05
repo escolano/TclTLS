@@ -2131,6 +2131,10 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
 #endif
     }
+ 
+    if (abort > 0) {
+	/* return error */
+    }
     return ctx;
 }
 
@@ -2214,20 +2218,20 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     /* Verify mode */
     mode = SSL_get_verify_mode(statePtr->ssl);
-    if (mode && SSL_VERIFY_NONE) {
+    if (mode & SSL_VERIFY_NONE) {
 	LAPPEND_STR(interp, objPtr, "verifyMode", "none", -1);
     } else {
 	Tcl_Obj *listObjPtr = Tcl_NewListObj(0, NULL);
-	if (mode && SSL_VERIFY_PEER) {
+	if (mode & SSL_VERIFY_PEER) {
 	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("peer", -1));
 	}
-	if (mode && SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
+	if (mode & SSL_VERIFY_FAIL_IF_NO_PEER_CERT) {
 	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("fail if no peer cert", -1));
 	}
-	if (mode && SSL_VERIFY_CLIENT_ONCE) {
+	if (mode & SSL_VERIFY_CLIENT_ONCE) {
 	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("client once", -1));
 	}
-	if (mode && SSL_VERIFY_POST_HANDSHAKE) {
+	if (mode & SSL_VERIFY_POST_HANDSHAKE) {
 	    Tcl_ListObjAppendElement(interp, listObjPtr, Tcl_NewStringObj("post handshake", -1));
 	}
 	LAPPEND_OBJ(interp, objPtr, "verifyMode", listObjPtr)
