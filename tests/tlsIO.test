@@ -87,8 +87,8 @@ set clientKey	[file join $certsDir client.key]
 # Some tests require the testthread and exec commands
 
 set ::tcltest::testConstraints(testthread) \
-	[expr {[info commands testthread] != {}}]
-set ::tcltest::testConstraints(exec) [expr {[info commands exec] != {}}]
+	[expr {[info commands testthread] ne {}}]
+set ::tcltest::testConstraints(exec) [expr {[info commands exec] ne {}}]
 
 #
 # If remoteServerIP or remoteServerPort are not set, check in the
@@ -121,7 +121,7 @@ proc do_handshake {s {type readable} {cmd {}} args} {
     } elseif {$result == 1} {
 	# Handshake complete
 	if {[llength $args]} { eval [list fconfigure $s] $args }
-	if {$cmd == ""} {
+	if {$cmd eq ""} {
 	    fileevent $s $type ""
 	} else {
 	    fileevent $s $type "$cmd [list $s]"
@@ -138,7 +138,7 @@ proc do_handshake {s {type readable} {cmd {}} args} {
 #
 
 set doTestsWithRemoteServer 1
-if {![info exists remoteServerIP] && ($tcl_platform(platform) != "macintosh")} {
+if {![info exists remoteServerIP] && ($tcl_platform(platform) ne "macintosh")} {
     set remoteServerIP 127.0.0.1
 }
 if {($doTestsWithRemoteServer == 1) && (![info exists remoteServerPort])} {
@@ -159,7 +159,7 @@ if {$doTestsWithRemoteServer} {
     if {[catch {set commandSocket [tls::socket \
 	    -certfile $clientCert -cafile $caCert -keyfile $clientKey \
 	    $remoteServerIP $remoteServerPort]}] != 0} {
-	if {[info commands exec] == ""} {
+	if {[info commands exec] eq ""} {
 	    set noRemoteTestReason "can't exec"
 	    set doTestsWithRemoteServer 0
 	} else {
@@ -224,8 +224,8 @@ if {$doTestsWithRemoteServer == 1} {
 	    if {[eof $commandSocket]} {
 		error "remote server disappeared"
 	    }
-	    if {[string compare $line "--Marker--Marker--Marker--"] == 0} {
-		if {[string compare [lindex $resp 0] error] == 0} {
+	    if {$line eq "--Marker--Marker--Marker--"} {
+		if {[lindex $resp 0] eq "error"} {
 		    error [lindex $resp 1]
 		} else {
 		    return [lindex $resp 1]
@@ -1390,7 +1390,7 @@ test tlsIO-11.5 {remote echo, 50 lines} {socket doTestsWithRemoteServer} {
     fconfigure $f -translation crlf -buffering line
     for {set cnt 0} {$cnt < 50} {incr cnt} {
 	puts $f "hello, $cnt"
-	if {[string compare [gets $f] "hello, $cnt"] != 0} {
+	if {[gets $f] ne "hello, $cnt"} {
 	    break
 	}
     }
@@ -1400,7 +1400,7 @@ test tlsIO-11.5 {remote echo, 50 lines} {socket doTestsWithRemoteServer} {
 } 50
 
 # Macintosh sockets can have more than one server per port
-if {$tcl_platform(platform) == "macintosh"} {
+if {$tcl_platform(platform) eq "macintosh"} {
     set conflictResult {0 8836}
 } else {
     set conflictResult {1 {couldn't open socket: address already in use}}
@@ -1724,7 +1724,7 @@ proc getdata {type file} {
     if {$status != 0} {
 	set x "read failed, error was $data"
 	catch { close $file }
-    } elseif {[string compare {} $data]} {
+    } elseif {$data ne {}} {
     } elseif {[fblocked $file]} {
     } elseif {[eof $file]} {
 	if {$failed} {

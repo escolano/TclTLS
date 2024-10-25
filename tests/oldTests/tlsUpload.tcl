@@ -17,7 +17,7 @@ proc fromServer {chan} {
 	close $chan
 	set ::/Exit 1
     }
-    if {$data != ""} {
+    if {$data ne ""} {
 	puts -nonewline stderr "$data"
     }
 }

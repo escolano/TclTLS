@@ -20,7 +20,7 @@ proc reflectCB {chan {verbose 0}} {
 	return
     }
 
-    if {$verbose && $data != ""} {
+    if {$verbose && $data ne ""} {
 	puts -nonewline stderr $data
     }
     if {[eof $chan]} {    ;# client gone or finished

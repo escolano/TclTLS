@@ -3,7 +3,7 @@
 #
 set dir [file dirname [info script]]
 regsub {\.} [info tclversion] {} vshort
-if {$tcl_platform(platform) == "windows"} {
+if {$tcl_platform(platform) eq "windows"} {
     if {[info exists tcl_platform(debug)]} {
 	load $dir/../win/Debug$vshort/tls.dll
     } else {

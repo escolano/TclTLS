@@ -42,7 +42,7 @@ proc respond {chan} {
 	catch {close $chan}
 	return
     }
-    #if {$data != ""} { dputs "got $chan ([shortstr $data])" }
+    #if {$data ne ""} { dputs "got $chan ([shortstr $data])" }
     if {[eof $chan]} {
 	# client gone or finished
 	dputs "EOF $chan"

@@ -1,3 +1,4 @@
+#!/usr/bin/env tclsh
 # This file contains Tcl code to implement a remote server that can be
 # used during testing of Tcl socket code. This server is used by some
 # of the tests in socket.test.
@@ -60,14 +61,14 @@ proc __readAndExecute__ {s} {
     global command VERBOSE
 
     set l [gets $s]
-    if {[string compare $l "--Marker--Marker--Marker--"] == 0} {
+    if {$l eq "--Marker--Marker--Marker--"} {
 	if {[info exists command($s)]} {
 	    puts $s [list error incomplete_command]
 	}
 	puts $s "--Marker--Marker--Marker--"
 	return
     }
-    if {[string compare $l ""] == 0} {
+    if {$l eq ""} {
 	if {[eof $s]} {
 	    if {$VERBOSE} {
 		puts "Server closing $s, eof from client"
@@ -103,7 +104,7 @@ proc __accept__ {s a p} {
 
 set serverIsSilent 0
 for {set i 0} {$i < $argc} {incr i} {
-    if {[string compare -serverIsSilent [lindex $argv $i]] == 0} {
+    if {[lindex $argv $i] eq "-serverIsSilent"} {
 	set serverIsSilent 1
 	break
     }
@@ -115,7 +116,7 @@ if {![info exists serverPort]} {
 }
 if {![info exists serverPort]} {
     for {set i 0} {$i < $argc} {incr i} {
-	if {[string compare -port [lindex $argv $i]] == 0} {
+	if {[lindex $argv $i] eq "-port"} {
 	    if {$i < [expr $argc - 1]} {
 		set serverPort [lindex $argv [expr $i + 1]]
 	    }
@@ -134,7 +135,7 @@ if {![info exists serverAddress]} {
 }
 if {![info exists serverAddress]} {
     for {set i 0} {$i < $argc} {incr i} {
-	if {[string compare -address [lindex $argv $i]] == 0} {
+	if {[lindex $argv $i] eq "-address"} {
 	    if {$i < [expr $argc - 1]} {
 		set serverAddress [lindex $argv [expr $i + 1]]
 	    }

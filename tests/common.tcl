@@ -1,3 +1,4 @@
+#!/usr/bin/env tclsh
 
 # Common Constraints
 package require tls

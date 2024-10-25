@@ -956,7 +956,8 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
     char buf[BUFSIZ];
-    int index, verbose = 0, use_supported = 0;
+    Tcl_Size index;
+    int verbose = 0, use_supported = 0;
     const SSL_METHOD *method;
     (void) clientData;
 

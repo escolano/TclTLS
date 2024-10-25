@@ -63,7 +63,7 @@ proc drain {chan} {
 	catch {close $chan}
 	return
     }
-    #if {$data != ""} { dputs "got $chan ([shortstr $data])" }
+    #if {$data ne ""} { dputs "got $chan ([shortstr $data])" }
     if {[string match *CLOSE\n $data]} {
 	dputs "CLOSE $chan"
 	incr OPTS(openports) -1

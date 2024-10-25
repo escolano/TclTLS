@@ -331,7 +331,7 @@ proc tls::callback {option chan args} {
 	    set type ""
 	    lassign $args major minor msg type
 
-	    if {$msg != ""} {
+	    if {$msg ne ""} {
 		append state ": $msg"
 	    }
 	    # For tracing
@@ -387,7 +387,7 @@ proc tls::validate_command {option chan args} {
 
 	    array set c $cert
 
-	    if {$rc != "1"} {
+	    if {$rc ne "1"} {
 		log 1 "TLS/$chan: verify/$depth: Bad Cert: $err (rc = $rc)"
 	    } else {
 		log 2 "TLS/$chan: verify/$depth: $c(subject)"
@@ -410,7 +410,7 @@ proc tls::xhandshake {chan} {
     upvar #0 tls::$chan cb
 
     if {[info exists cb(handshake)] && \
-	$cb(handshake) == "done"} {
+	$cb(handshake) eq "done"} {
 	return 1
     }
     while {1} {
@@ -434,7 +434,7 @@ proc tls::log {level msg} {
     variable debug
     variable logcmd
 
-    if {$level > $debug || $logcmd == ""} {
+    if {$level > $debug || $logcmd eq ""} {
 	return
     }
     set cmd $logcmd

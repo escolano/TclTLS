@@ -37,7 +37,7 @@
 Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
     unsigned char *iptr = input;
     Tcl_Obj *resultObj = Tcl_NewByteArrayObj(NULL, 0);
-    unsigned char *data = Tcl_SetByteArrayLength(resultObj, ilen*2);
+    unsigned char *data = Tcl_SetByteArrayLength(resultObj, (Tcl_Size)ilen*2);
     unsigned char *dptr = &data[0];
     const char *hex = "0123456789abcdef";
 
@@ -528,7 +528,7 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 
     char *buffer = ckalloc(BUFSIZ > EVP_MAX_MD_SIZE ? BUFSIZ : EVP_MAX_MD_SIZE);
 
-    printf("Called\n");
+    dprintf("Called");
 
     if (interp == NULL || cert == NULL || bio == NULL || resultObj == NULL || buffer == NULL) {
 	Tcl_DecrRefCount(resultObj);
