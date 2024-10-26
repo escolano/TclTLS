@@ -85,7 +85,7 @@ TEA_ADD_TCL_SOURCES([library/tls.tcl license.terms README.txt])
 # TEA_ADD_* any platform specific compiler/build info here.
 #--------------------------------------------------------------------
 
-TEA_ADD_CLEANFILES([pkgIndex.tcl generic/tls.tcl.h tlsUuid.h])
+TEA_ADD_CLEANFILES([pkgIndex.tcl generic/tls.tcl.h tlsUuid.h manifest.uuid])
 
 if test "${TEA_PLATFORM}" = "windows" ; then
     TEA_ADD_CLEANFILES([*.lib *.dll *.exp *.ilk *.pdb vc*.pch])

@@ -65,8 +65,9 @@ PRJ_LIBS = \
 all: setup default-target
 
 clean: default-clean
+	@if exist $(WIN_DIR)\..\manifest.uuid del $(WIN_DIR)\..\manifest.uuid
 
-realclean: default-hose
+realclean: clean default-hose
 
 # Explicit dependency rules
 $(PRJ_OBJS): $(TMP_DIR)\tls.tcl.h $(TMP_DIR)\tlsUuid.h
