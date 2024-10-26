@@ -4,12 +4,8 @@ Intro
 =====
 
 This package provides an extension which implements Secure Socket Layer (SSL)
-and Transport Layer Security (TLS) over Transmission Control Protocol (TCP)
-network communication channels. It utilizes either the OpenSSL
-software library.
-
-Version 1.9 also provides a cryptography library providing TCL scripts access
-to the crypto capabilities of the OpenSSL library.
+and Transport Layer Security (TLS) encryption over Transmission Control
+Protocol (TCP) network communication channels. It utilizes the OpenSSL library.
 
 
 Description
@@ -30,23 +26,31 @@ See the doc directory for the full usage documentation.
 Compatibility
 =============
 
-This package requires TCL 8.5 or later.
+This package requires TCL 8.5 or later. It will work with TCL 9. If this
+extension is built against TCL 8.x it will not work with TCL 9 or vice versa.
+It is best to compile both separately then install them with the compatible
+TCL versions.
+
 
 This package is compatible with:
-- OpenSSL v1.1.1 or later. See (http://www.openssl.org/
+- OpenSSL v1.1.1 or later though 3.2+ is preferred. See (http://www.openssl.org/
+
+Note: There are incompatibilities between OpenSSL 1.1.1 and 3.x, so if this
+extension is built against OpenSSL 1.1.1 it will not work with an OpenSSL 3.x
+installation or vice versa.
 
 
 Installation
 ============
 
-This package uses the Tcl Extension Architecture (TEA) to build and install on
-any supported Unix, Mac, or MS Windows system. Either the OpenSSL
-software libraries must be built and available prior to building TCL TLS.
+This package uses the TCL Extension Architecture (TEA) to build and install on
+any supported Unix, Mac, or MS Windows system. It depends on the OpenSSL
+libraries being available prior to building the TCLTLS extension.
 
 UNIX and Linux
 --------------
 
-The standard TEA config, make and install process is supported.
+The standard TEA config, make, and install process is supported.
 
 	$ cd tcltls
 	$ ./configure --enable-64bit
@@ -54,8 +58,8 @@ The standard TEA config, make and install process is supported.
 	$ make test
 	$ make install
 
-The supported configure options include all of the standard TEA configure script
-options, plus:
+The supported configure options include all of the standard TEA configure
+script options, plus:
 
   --disable-tls1          disable TLS1 protocol
   --disable-tls1_1        disable TLS1.1 protocol
@@ -95,16 +99,16 @@ Windows
 -------
 
 If installing with MinGW, use the TEA build process. If using MS Visual C
-(MSVC), see the win/README.txt file for the installation instructions.
+(MSVC), see win/README.txt for the build and installation instructions.
 
 
-Other
------
+Certificate Validation
+----------------------
 
 If OpenSSL is not installed on the system, the Certificate Authority (CA)
 provided certificates must be downloaded and installed with the software.
-The CURL team makes them available at https://curl.se/docs/caextract.html.
-Look for the cacert.pem file.
+These are used for certificate validation. The CURL team makes them available
+at https://curl.se/docs/caextract.html. Look for the cacert.pem file.
 
 
 Copyrights
@@ -115,7 +119,7 @@ TLS 1.4.1    Copyright (C) 2000 Ajuba Solutions
 TLS 1.6      Copyright (C) 2008 ActiveState Software Inc.
 TLS 1.7      Copyright (C) 2016 Matt Newman, Ajuba Solutions, ActiveState
                                 Software Inc, Roy Keene <tcltls@rkeene.org>
-TLS 1.8      Copyright (C) 2023 Brian O'Hagan
+TLS 1.8     Copyright (C) 2023 Brian O'Hagan
 
 Acknowledgments
 ===============

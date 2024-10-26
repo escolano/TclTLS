@@ -77,6 +77,9 @@ $(PRJ_OBJS): $(TMP_DIR)\tls.tcl.h $(TMP_DIR)\tlsUuid.h
 # default-pkgindex target for our sample extension.
 pkgindex: default-pkgindex-tea
 
+# Create a C source file version of the script resources for inclusion in the
+# build so that only the compiled library file is needed for this extension to
+# load and operate.
 $(TMP_DIR)\tls.tcl.h: $(LIBDIR)\tls.tcl
 	"$(TCLSH)" << $(LIBDIR)\tls.tcl >$(TMP_DIR)\tls.tcl.h
 	set in [open [lindex $$argv 0] r]
