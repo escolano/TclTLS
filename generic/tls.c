@@ -1751,6 +1751,118 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
 /*
  *-------------------------------------------------------------------
  *
+ * TlsLoadClientCAFileFromMemory -- Load certificates from a client
+ *	CA file from VFS into memory.
+ *
+ * Results:
+ *	Number of certificates loaded or 0 for none.
+ *
+ * Side effects:
+ *	Loads CA certificates
+ *
+ *-------------------------------------------------------------------
+ */
+static int
+TlsLoadClientCAFileFromMemory(Tcl_Interp *interp, SSL_CTX *ctx, Tcl_Obj *file) {
+    BIO  *bio  = NULL;
+    X509 *cert = NULL;
+    X509_STORE *store = NULL;
+    Tcl_Obj    *buf = NULL;
+    const void *data = NULL;
+    X509_NAME  *name = NULL;
+    STACK_OF(X509_NAME) *certNames = NULL;
+    int ret = 0;
+    Tcl_Size len = 0;
+
+    /* Read file into memory */
+    Tcl_Channel in = Tcl_FSOpenFileChannel(interp, file, "r", 0);
+    if (in == NULL) {
+	goto cleanup;
+    }
+    Tcl_SetChannelOption(interp, in, "-encoding", "binary");
+    buf = Tcl_NewObj();
+    Tcl_IncrRefCount(buf);
+
+    if (Tcl_ReadChars(in, buf, -1, 0) < 0) {
+	Tcl_Close(interp, in);
+	goto cleanup;
+    }
+    Tcl_Close(interp, in);
+
+    data = (const void *) Tcl_GetByteArrayFromObj(buf, &len);
+    bio = BIO_new_mem_buf(data, len);
+    if (bio == NULL) {
+	goto cleanup;
+    }
+
+    /* Where the certs go */
+    store = SSL_CTX_get_cert_store(ctx);
+    if (store == NULL) {
+	store = X509_STORE_new();
+	if (store == NULL) {
+	    goto cleanup;
+	}
+    }
+
+    /* Where the CA names go */
+    certNames = sk_X509_NAME_new_null();
+    if (!certNames) {
+        goto cleanup;
+    }
+
+    /* Attempt to load all certs from the PEM file */
+    while ((cert = PEM_read_bio_X509(bio, NULL, 0, NULL)) != NULL) {
+        if (X509_STORE_add_cert(store, cert) == 0) {
+            X509_free(cert);
+            ret = 0;
+            goto cleanup;
+        }
+        /* Copy name to stack before certificate gets freed */
+	name = X509_get_subject_name(cert);
+        if (name) {
+            X509_NAME *name_copy = X509_NAME_dup(name);
+            if (!name_copy || !sk_X509_NAME_push(certNames, name_copy)) {
+                X509_free(cert);
+		ret = 0;
+                goto cleanup;
+            }
+        }
+        X509_free(cert);
+        ret ++;
+    }
+
+    /* At least one cert was added so retain the store and CA list */
+    if (ret) {
+	if (SSL_CTX_get_cert_store(ctx) == NULL) {
+	    SSL_CTX_set_cert_store(ctx, store);
+	}
+	SSL_CTX_set_client_CA_list(ctx, certNames);
+    }
+
+  cleanup:
+
+    if (! ret) {
+	/* New store is not required */
+	if (store != SSL_CTX_get_cert_store(ctx)) {
+	    X509_STORE_free(store);
+	}
+	/* Cert names will not be used */
+	if (certNames) {
+	    sk_X509_NAME_pop_free(certNames, X509_NAME_free);
+	}
+    }
+
+    BIO_free(bio);
+
+    if (buf)
+	Tcl_DecrRefCount(buf);
+
+    return ret;
+}
+
+/*
+ *-------------------------------------------------------------------
+ *
  * CTX_Init -- construct a SSL_CTX instance
  *
  * Results:
@@ -2119,17 +2231,41 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
 	/* Set file of CA certificates in PEM format.  */
 	if (CAfile != NULL) {
-	    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
-		abort++;
-	    }
-	    Tcl_DStringFree(&ds);
+	    Tcl_Obj *cafileobj = Tcl_NewStringObj(CAfile, -1);
+	    Tcl_IncrRefCount(cafileobj);
 
-	    /* Set list of CAs to send to client when requesting a client certificate */
-	    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
-	    if (certNames != NULL) {
-		SSL_CTX_set_client_CA_list(ctx, certNames);
+	    Tcl_Obj *fsinfo = Tcl_FSFileSystemInfo(cafileobj);
+	    if (fsinfo) {
+		Tcl_IncrRefCount(fsinfo);
+
+		Tcl_Obj *fstype = NULL;
+		Tcl_ListObjIndex(interp, fsinfo, 0, &fstype);
+
+		if (Tcl_StringMatch("native", Tcl_GetString(fstype))) {
+		    if (!SSL_CTX_load_verify_file(ctx, F2N(CAfile, &ds))) {
+			abort++;
+		    }
+		    Tcl_DStringFree(&ds);
+
+		    /* Set list of CAs to send to client when requesting a client certificate */
+		    STACK_OF(X509_NAME) *certNames = SSL_load_client_CA_file(F2N(CAfile, &ds));
+		    if (certNames != NULL) {
+			SSL_CTX_set_client_CA_list(ctx, certNames);
+		    }
+		    Tcl_DStringFree(&ds);
+
+		} else {
+		    /* Load certificate into memory */
+		    if (!TlsLoadClientCAFileFromMemory(interp, ctx, cafileobj)) {
+			abort++;
+		    }
+		}
+		Tcl_DecrRefCount(fsinfo);
+
+	    } else {
+		abort++; /* Path is not recognized */
 	    }
-	    Tcl_DStringFree(&ds);
+	    Tcl_DecrRefCount(cafileobj);
 	}
 #endif
     }
