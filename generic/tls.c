@@ -1,4 +1,11 @@
 /*
+ * TLS Channel - This extension provides a encrypted communication channel
+ * using the TLS or SSL protocols. It can be layered on top of any
+ * bi-directional Tcl_Channel.
+ *
+ * This was initially built (almost) from scratch based upon observation of
+ * OpenSSL 0.9.2B.
+ *
  * Copyright (C) 1997-1999 Matt Newman <matt@novadigm.com>
  * some modifications:
  *	Copyright (C) 2000 Ajuba Solutions
@@ -6,13 +13,7 @@
  *	Copyright (C) 2004 Starfish Systems
  *	Copyright (C) 2023 Brian O'Hagan
  *
- * TLS (aka SSL) Channel - can be layered on any bi-directional
- * Tcl_Channel (Note: Requires Trf Core Patch)
- *
- * This was built (almost) from scratch based upon observation of
- * OpenSSL 0.9.2B
- *
- * Addition credit is due for Andreas Kupries (a.kupries@westend.com), for
+ * Additional credit is due for Andreas Kupries (a.kupries@westend.com), for
  * providing the Tcl_ReplaceChannel mechanism and working closely with me
  * to enhance it to support full fileevent semantics.
  *

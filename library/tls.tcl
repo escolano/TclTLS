@@ -1,4 +1,6 @@
 #
+# Support functions for the TLS extension
+#
 # Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
 #
 namespace eval tls {

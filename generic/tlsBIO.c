@@ -1,6 +1,6 @@
 /*
- * Provides Custom BIO layer to interface OpenSSL with TCL. These
- * functions directly interface between the IO channel and BIO buffers.
+ * Provides Custom BIO layer to interface OpenSSL with TCL. These functions
+ * directly interface between the TCL IO channel and BIO buffers.
  *
  * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
  * Copyright (C) 2024 Brian O'Hagan

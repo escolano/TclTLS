@@ -1,5 +1,5 @@
 /*
- * Parse X.509 certificate and return contents as a TCL key-value list.
+ * Parse X.509 certificates and return contents as a TCL key-value list.
  *
  * Copyright (C) 1997-2000 Sensus Consulting Ltd.
  * Matt Newman <matt@sensus.org>

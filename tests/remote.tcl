@@ -1,4 +1,5 @@
 #!/usr/bin/env tclsh
+#
 # This file contains Tcl code to implement a remote server that can be
 # used during testing of Tcl socket code. This server is used by some
 # of the tests in socket.test.
@@ -10,7 +11,6 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: remote.tcl,v 1.6 2004/02/11 22:41:25 razzell Exp $
 
 # load tls package
 package require tls

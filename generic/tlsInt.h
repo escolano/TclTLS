@@ -1,18 +1,18 @@
 /*
- *----------------------------------------------------------------------
+ * Macro and structure definitions for TLS extension
+ *
  * Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com>
  *
- *	Macro and structure definitions
- *
- * Addition credit is due for Andreas Kupries (a.kupries@westend.com), for
+ * Additional credit is due for Andreas Kupries (a.kupries@westend.com), for
  * providing the Tcl_ReplaceChannel mechanism and working closely with me
  * to enhance it to support full fileevent semantics.
  *
  * Also work done by the follow people provided the impetus to do this "right":-
  *	tclSSL (Colin McCormack, Shared Technology)
  *	SSLtcl (Peter Antman)
- *----------------------------------------------------------------------
+ *
  */
+
 #ifndef _TLSINT_H
 #define _TLSINT_H
 
