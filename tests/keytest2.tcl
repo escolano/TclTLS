@@ -1,4 +1,4 @@
-#! /usr/bin/env tclsh
+#!/usr/bin/env tclsh
 
 set auto_path [linsert $auto_path 0 [file normalize [file join [file dirname [info script]] ..]]]
 package require tls

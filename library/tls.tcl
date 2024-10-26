@@ -15,7 +15,7 @@ namespace eval tls {
     # Over-ride this if you are using a different socket command
     variable socketCmd
     if {![info exists socketCmd]} {
-        set socketCmd [info command ::socket]
+	set socketCmd [info command ::socket]
     }
 
     # This is the possible arguments to tls::socket and tls::init
@@ -28,39 +28,39 @@ namespace eval tls {
     #### iopts: [tls::import] option
     ### How many arguments the following the option to consume
     variable socketOptionRules {
-        {0 -async sopts 0}
-        {* -myaddr sopts 1}
-        {0 -myport sopts 1}
-        {* -type sopts 1}
-        {* -alpn iopts 1}
-        {* -cadir iopts 1}
-        {* -cafile iopts 1}
-        {* -castore iopts 1}
-        {* -cert iopts 1}
-        {* -certfile iopts 1}
-        {* -cipher iopts 1}
-        {* -ciphersuites iopts 1}
-        {* -command iopts 1}
-        {* -dhparams iopts 1}
-        {* -key iopts 1}
-        {* -keyfile iopts 1}
-        {* -password iopts 1}
-        {* -post_handshake iopts 1}
-        {* -request iopts 1}
-        {* -require iopts 1}
-        {* -securitylevel iopts 1}
-        {* -autoservername discardOpts 1}
-        {* -server iopts 1}
-        {* -servername iopts 1}
-        {* -session_id iopts 1}
-        {* -ssl2 iopts 1}
-        {* -ssl3 iopts 1}
-        {* -tls1 iopts 1}
-        {* -tls1.1 iopts 1}
-        {* -tls1.2 iopts 1}
-        {* -tls1.3 iopts 1}
-        {* -validatecommand iopts 1}
-        {* -vcmd iopts 1}
+	{0 -async sopts 0}
+	{* -myaddr sopts 1}
+	{0 -myport sopts 1}
+	{* -type sopts 1}
+	{* -alpn iopts 1}
+	{* -cadir iopts 1}
+	{* -cafile iopts 1}
+	{* -castore iopts 1}
+	{* -cert iopts 1}
+	{* -certfile iopts 1}
+	{* -cipher iopts 1}
+	{* -ciphersuites iopts 1}
+	{* -command iopts 1}
+	{* -dhparams iopts 1}
+	{* -key iopts 1}
+	{* -keyfile iopts 1}
+	{* -password iopts 1}
+	{* -post_handshake iopts 1}
+	{* -request iopts 1}
+	{* -require iopts 1}
+	{* -securitylevel iopts 1}
+	{* -autoservername discardOpts 1}
+	{* -server iopts 1}
+	{* -servername iopts 1}
+	{* -session_id iopts 1}
+	{* -ssl2 iopts 1}
+	{* -ssl3 iopts 1}
+	{* -tls1 iopts 1}
+	{* -tls1.1 iopts 1}
+	{* -tls1.2 iopts 1}
+	{* -tls1.3 iopts 1}
+	{* -validatecommand iopts 1}
+	{* -vcmd iopts 1}
     }
 
     # tls::socket and tls::init options as a humane readable string
@@ -79,7 +79,7 @@ proc tls::_initsocketoptions {} {
 
     # Do not re-run if we have already been initialized
     if {[info exists socketOptionsSwitchBody]} {
-        return
+	return
     }
 
     # Create several structures from our list of options
@@ -90,43 +90,43 @@ proc tls::_initsocketoptions {} {
     set options(1) [list]
     set argSwitchBody [list]
     foreach optionRule $socketOptionRules {
-        set ruleServer [lindex $optionRule 0]
-        set ruleOption [lindex $optionRule 1]
-        set ruleVarToUpdate [lindex $optionRule 2]
-        set ruleVarArgsToConsume [lindex $optionRule 3]
+	set ruleServer [lindex $optionRule 0]
+	set ruleOption [lindex $optionRule 1]
+	set ruleVarToUpdate [lindex $optionRule 2]
+	set ruleVarArgsToConsume [lindex $optionRule 3]
 
-        foreach server [list 0 1] {
-            if {![string match $ruleServer $server]} {
-                continue
-            }
+	foreach server [list 0 1] {
+	    if {![string match $ruleServer $server]} {
+		continue
+	    }
 
-            lappend options($server) $ruleOption
-        }
+	    lappend options($server) $ruleOption
+	}
 
-        switch -- $ruleVarArgsToConsume {
-            0 {
-                set argToExecute {
-                    lappend @VAR@ $arg
-                    set argsArray($arg) true
-                }
-            }
-            1 {
-                set argToExecute {
-                    incr idx
-                    if {$idx >= [llength $args]} {
-                        return -code error "\"$arg\" option must be followed by value"
-                    }
-                    set argValue [lindex $args $idx]
-                    lappend @VAR@ $arg $argValue
-                    set argsArray($arg) $argValue
-                }
-            }
-            default {
-                return -code error "Internal argument construction error"
-            }
-        }
+	switch -- $ruleVarArgsToConsume {
+	    0 {
+		set argToExecute {
+		    lappend @VAR@ $arg
+		    set argsArray($arg) true
+		}
+	    }
+	    1 {
+		set argToExecute {
+		    incr idx
+		    if {$idx >= [llength $args]} {
+			return -code error "\"$arg\" option must be followed by value"
+		    }
+		    set argValue [lindex $args $idx]
+		    lappend @VAR@ $arg $argValue
+		    set argsArray($arg) $argValue
+		}
+	    }
+	    default {
+		return -code error "Internal argument construction error"
+	    }
+	}
 
-        lappend argSwitchBody $ruleServer,$ruleOption [string map [list @VAR@ $ruleVarToUpdate] $argToExecute]
+	lappend argSwitchBody $ruleServer,$ruleOption [string map [list @VAR@ $ruleVarToUpdate] $argToExecute]
     }
 
     # Add in the final options
@@ -216,12 +216,12 @@ proc tls::socket {args} {
 	set args [lreplace $args $idx [expr {$idx+1}]]
 
 	set usage "wrong # args: should be \"tls::socket -server command ?options? port\""
-        set options $socketOptionsServer
+	set options $socketOptionsServer
     } else {
 	set server 0
 
 	set usage "wrong # args: should be \"tls::socket ?options? host port\""
-        set options $socketOptionsNoServer
+	set options $socketOptionsNoServer
     }
 
     # Combine defaults with current options
@@ -256,13 +256,13 @@ proc tls::socket {args} {
 	set host [lindex $args [expr {$argc-2}]]
 	set port [lindex $args [expr {$argc-1}]]
 
-        # If an "-autoservername" option is found, honor it
-        if {[info exists argsArray(-autoservername)] && $argsArray(-autoservername)} {
-            if {![info exists argsArray(-servername)]} {
-                set argsArray(-servername) $host
-                lappend iopts -servername $host
-            }
-        }
+	# If an "-autoservername" option is found, honor it
+	if {[info exists argsArray(-autoservername)] && $argsArray(-autoservername)} {
+	    if {![info exists argsArray(-servername)]} {
+		set argsArray(-servername) $host
+		lappend iopts -servername $host
+	    }
+	}
 
 	lappend sopts $host $port
     }

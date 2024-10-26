@@ -2132,7 +2132,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	}
 #endif
     }
- 
+
     if (abort > 0) {
 	/* return error */
     }

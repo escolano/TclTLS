@@ -46,8 +46,8 @@ Tcl_Obj *String_to_Hex(unsigned char* input, int ilen) {
     }
 
     for (int i = 0; i < ilen; i++) {
-        *dptr++ = hex[(*iptr>>4)&0xF];
-        *dptr++ = hex[(*iptr++)&0xF];
+	*dptr++ = hex[(*iptr>>4)&0xF];
+	*dptr++ = hex[(*iptr++)&0xF];
     }
     return resultObj;
 }
@@ -643,7 +643,7 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	and/or issuer names over time. RFC 5280 section 4.1.2.8 */
     {
 	const ASN1_BIT_STRING *iuid, *suid;
-        X509_get0_uids(cert, &iuid, &suid);
+	X509_get0_uids(cert, &iuid, &suid);
 
 	Tcl_ListObjAppendElement(interp, resultObj, Tcl_NewStringObj("issuerUniqueId", -1));
 	if (iuid != NULL) {
@@ -740,9 +740,9 @@ Tcl_Obj *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all) {
 	friendlyName attribute (RFC 2985). */
     {
 	int ilen = 0;
-        unsigned char *string = X509_alias_get0(cert, &ilen);
+	unsigned char *string = X509_alias_get0(cert, &ilen);
 	LAPPEND_STR(interp, resultObj, "alias", (char *) string, (Tcl_Size) ilen);
-        string = X509_keyid_get0(cert, &ilen);
+	string = X509_keyid_get0(cert, &ilen);
 	LAPPEND_STR(interp, resultObj, "keyId", (char *) string, (Tcl_Size) ilen);
     }
 

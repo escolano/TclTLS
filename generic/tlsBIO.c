@@ -11,7 +11,7 @@
 		tlsBIO.c				tlsIO.c
   +------+                         +-----+                                     +------+
   |      |Tcl_WriteRaw <-- BioWrite| SSL |BIO_write <-- TlsOutputProc <-- Write|      |
-  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  | 
+  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  |
   |      |Tcl_ReadRaw  -->  BioRead|     |BIO_Read  --> TlsInputProc  -->  Read|      |
   +------+                         +-----+                                     +------+
 */
@@ -477,7 +477,7 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 #ifdef TCLTLS_SSL_USE_FASTPATH
     Tcl_Channel parentChannel;
     const Tcl_ChannelType *parentChannelType;
-    
+
     int parentChannelFdIn, parentChannelFdOut, parentChannelFd;
     int validParentChannelFd;
 #endif

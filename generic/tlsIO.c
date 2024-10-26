@@ -25,7 +25,7 @@
 		tlsBIO.c				tlsIO.c
   +------+                         +-----+                                     +------+
   |      |Tcl_WriteRaw <-- BioWrite| SSL |BIO_write <-- TlsOutputProc <-- Write|      |
-  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  | 
+  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  |
   |      |Tcl_ReadRaw  -->  BioRead|     |BIO_Read  --> TlsInputProc  -->  Read|      |
   +------+                         +-----+                                     +------+
 */
@@ -388,7 +388,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *
  * Data is received in whole blocks known as records from the peer. A whole
  * record is processed (e.g. decrypted) in one go and is buffered by OpenSSL
- * until it is read by the application via a call to SSL_read. 
+ * until it is read by the application via a call to SSL_read.
  *
  *-----------------------------------------------------------------------------
  */
@@ -459,7 +459,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	}
 
 	dprintf("BIO is EOF %d", BIO_eof(statePtr->bio));
-	
+
 	/* These are the same as BIO_retry_type */
 	if (BIO_should_read(statePtr->bio)) {
 	    dprintf("BIO has insufficient data to read and return");
@@ -595,7 +595,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  * TlsOutputProc --
  *
  *	This procedure is invoked by the generic I/O layer to write data to the
- *	BIO whenever the the Tcl_Write(), Tcl_WriteChars, and Tcl_WriteObj 
+ *	BIO whenever the the Tcl_Write(), Tcl_WriteChars, and Tcl_WriteObj
  *	functions are used. Equivalent to SSL_write_ex and SSL_write.
  *
  * Results:
