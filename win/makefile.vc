@@ -40,6 +40,7 @@ PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\inclu
 
 # Define any additional compiler flags that might be required for the project
 PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D__STDC_WANT_SECURE_LIB__=1
+# /DTCLEXT_TCLTLS_DEBUG
 
 #
 # SSL Libs:
@@ -58,6 +59,8 @@ PRJ_LIBS = \
 # Define the standard targets which calls rules.vc
 !include "targets.vc"
 
+.SUFFIXES: .c .obj .res .man
+
 #---------------------------------------------------------------------
 # Project specific targets
 #---------------------------------------------------------------------
@@ -65,9 +68,8 @@ PRJ_LIBS = \
 all: setup default-target
 
 clean: default-clean
-	@if exist $(WIN_DIR)\..\manifest.uuid del $(WIN_DIR)\..\manifest.uuid
 
-realclean: clean default-hose
+realclean: default-hose
 
 # Explicit dependency rules
 $(PRJ_OBJS): $(TMP_DIR)\tls.tcl.h $(TMP_DIR)\tlsUuid.h
@@ -91,34 +93,40 @@ $(TMP_DIR)\tls.tcl.h: $(LIBDIR)\tls.tcl
 	}
 <<
 
-# Manifest which defines fossil/git commit id for build-info command
-$(ROOT)\manifest.uuid:
-    if not exist $(ROOT)\manifest.uuid (
-	copy $(WIN_DIR)\gitmanifest.in $(ROOT)\manifest.uuid
-	where git
-	if ERRORLEVEL 0 (
-	    git rev-parse HEAD >>$(ROOT)\manifest.uuid
+# Use manifest file which defines fossil/git commit id for build-info command
+$(TMP_DIR)\manifest.uuid:
+!if exist($(ROOT)\manifest.uuid)
+	@copy "$(ROOT)\manifest.uuid" "$(TMP_DIR)\manifest.uuid"
+!else
+!if exist($(ROOT)\.git)
+	@copy "$(WIN_DIR)\gitmanifest.in" "$(TMP_DIR)\manifest.uuid"
+	@for /f "delims=" %i in ('where git') do (set GIT_PATH=%i)
+	@if [%GIT_PATH%] NEQ [] (
+		@git rev-parse HEAD >>$(TMP_DIR)\manifest.uuid
 	) else (
-	    echo unknown >>$(ROOT)\manifest.uuid
+		@echo unknown >>$(TMP_DIR)\manifest.uuid
 	)
-    )
+!else
+	@echo unknown >$(TMP_DIR)\manifest.uuid
+!endif
+!endif
 
-$(TMP_DIR)\tlsUuid.h:	$(ROOT)\manifest.uuid
-	copy $(WIN_DIR)\tlsUuid.h.in+$(ROOT)\manifest.uuid $(TMP_DIR)\tlsUuid.h
-	echo: >>$(TMP_DIR)\tlsUuid.h
-
+$(TMP_DIR)\tlsUuid.h:	$(TMP_DIR)\manifest.uuid
+	@copy $(WIN_DIR)\tlsUuid.h.in+$(TMP_DIR)\manifest.uuid $(TMP_DIR)\tlsUuid.h
+	@echo: >>$(TMP_DIR)\tlsUuid.h
 
 # The default install target only installs binaries and scripts so add
 # an additional target for our documentation. Note this *adds* a target
 # since no commands are listed after it. The original targets for
 # install (from targets.vc) will remain.
 install: pkgindex default-install default-install-docs-html
-    if exist "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" (
-        xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
-    )
-    if exist "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" (
-        xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" "$(PRJ_INSTALL_DIR)"
-    )
+!if exist($(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll)
+	xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+!endif
+!if exist($(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll)
+	xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+!endif
 
 # Test package
 test: default-test
+
