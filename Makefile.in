@@ -240,7 +240,7 @@ install-libraries: libraries
 
 install-doc-html: doc
 	@$(INSTALL_DATA_DIR) "$(DESTDIR)$(pkglibdir)/html"
-	@list='$(srcdir)/doc/*.html'; for i in $$list; do \
+	@list='doc/*.html'; for i in $$list; do \
 	    if test -f $$i ; then \
 		echo "Installing $$i"; \
 		$(INSTALL_DATA) $$i "$(DESTDIR)$(pkglibdir)/html"; \
@@ -250,12 +250,16 @@ install-doc-html: doc
 install-doc-n: doc
 	@$(INSTALL_DATA_DIR) "$(DESTDIR)$(mandir)/mann"
 	@echo "Installing documentation in $(DESTDIR)$(mandir)"
-	@list='$(srcdir)/doc/*.n'; for i in $$list; do \
+	@list='doc/*.n'; for i in $$list; do \
 	    if test -f $$i ; then \
 		echo "Installing $$i"; \
 		$(INSTALL_DATA) $$i "$(DESTDIR)$(mandir)/mann" ; \
 	    fi; \
 	done
+
+#========================================================================
+# Test and debug
+#========================================================================
 
 test: binaries libraries
 	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS) \
@@ -305,6 +309,32 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 	$(RANLIB_STUB) $(PKG_STUB_LIB_FILE)
 
 #========================================================================
+# Support files needed to compile C code
+#========================================================================
+
+# Create a C-source-ified version of the script resources for this
+# package so that we only need a single file to enable this extension.
+# I would prefer to use $< over $?, but FreeBSD's can't handle it, and
+# with only one prereq, $? is sufficient.
+tls.tcl.h: library/tls.tcl
+	sed -e '/^\\s*\#/d' -e '/^\\s*$$/d' -e 's/\\/\\\\/g' -e 's/\"/\\"/g' -e 's/^/"/' \
+	    -e 's/$$/\\n\"/' '$?' > '$@' || { rm -f $@; exit 1; }
+
+# Create header file with fossil, git, or svn UUID for build-info command 
+manifest.uuid:
+	@echo "Make manifest.uuid"
+	printf "git-" >manifest.uuid
+	(git rev-parse HEAD >>manifest.uuid || \
+	    (printf "svn-r" >manifest.uuid ; \
+	    svn info --show-item last-changed-revision >>manifest.uuid) || \
+	    printf "unknown" >manifest.uuid)
+
+tlsUuid.h:	manifest.uuid
+	echo "#define TLS_VERSION_UUID \\" >$@
+	cat manifest.uuid >>$@
+	echo "" >>$@
+
+#========================================================================
 # We need to enumerate the list of .c to .o lines here.
 #
 # In the following lines, $(srcdir) refers to the toplevel directory
@@ -321,24 +351,6 @@ $(PKG_STUB_LIB_FILE): $(PKG_STUB_OBJECTS)
 
 VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win:$(srcdir)/macosx
 
-# Create a C-source-ified version of the script resources
-# for TclTLS so that we only need a single file to enable
-# this extension
-tls.tcl.h: $(srcdir)/library/tls.tcl
-	sed -e '/^\\s*\#/d' -e '/^\\s*$$/d' -e 's/\\/\\\\/g' -e 's/\"/\\"/g' -e 's/^/"/' -e 's/$$/\\n\"/' < `@CYGPATH@ $<` > $@ || { rm -f $@; exit 1; }
-
-$(srcdir)/manifest.uuid:
-	printf "git-" >$(srcdir)/manifest.uuid
-	(cd $(srcdir); git rev-parse HEAD >>$(srcdir)/manifest.uuid || \
-	    (printf "svn-r" >$(srcdir)/manifest.uuid ; \
-	    svn info --show-item last-changed-revision >>$(srcdir)/manifest.uuid) || \
-	    printf "unknown" >$(srcdir)/manifest.uuid)
-
-tlsUuid.h:	$(srcdir)/manifest.uuid
-	echo "#define TLS_VERSION_UUID \\" >$@
-	cat $(srcdir)/manifest.uuid >>$@
-	echo "" >>$@
-
 tls.@OBJEXT@:	tlsUuid.h tls.tcl.h
 
 .c.@OBJEXT@:
@@ -352,7 +364,7 @@ tls.@OBJEXT@:	tlsUuid.h tls.tcl.h
 # the configure script output the pkgIndex.tcl by editing configure.in.
 #========================================================================
 
-pkgIndex.tcl: $(srcdir)/pkgIndex.tcl.in
+pkgIndex.tcl: pkgIndex.tcl.in
 	cd $(top_builddir) \
 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
@@ -373,7 +385,7 @@ DIST_INSTALL_SCRIPT	= CPPROG='cp -p' $(INSTALL) -m 755
 dist-clean:
 	rm -rf $(DIST_DIR) $(top_builddir)/$(PKG_DIR).tar.*
 
-dist: dist-clean $(srcdir)/manifest.uuid
+dist: dist-clean manifest.uuid
 	# TEA files
 	$(INSTALL_DATA_DIR) $(DIST_DIR)
 	$(DIST_INSTALL_DATA) $(srcdir)/Makefile.in \
