@@ -513,7 +513,7 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
-	    /* Op did not complete due to unable to sent all data to the BIO. Retry later. */
+	    /* Op did not complete due to unable to send all data to the BIO. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
@@ -739,7 +739,7 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    break;
 
 	case SSL_ERROR_WANT_WRITE:
-	    /* Op did not complete due to unable to sent all data to the BIO. Retry later. */
+	    /* Op did not complete due to unable to send all data to the BIO. Retry later. */
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
