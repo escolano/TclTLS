@@ -5,7 +5,7 @@ Intro
 
 This package provides an extension which implements Secure Socket Layer (SSL)
 and Transport Layer Security (TLS) encryption over Transmission Control
-Protocol (TCP) network communication channels. It utilizes the OpenSSL library.
+Protocol (TCP) network communication channels utilizing the OpenSSL library.
 
 
 Description
@@ -13,8 +13,8 @@ Description
 
 This extension works by creating a layered TCL Channel on top of an existing
 bi-directional channel created by the TLS socket command. All existing socket
-functionality is supported, in addition to several new options. Both client
-and server modes are supported.
+functionality is supported in addition to several new options. Both client and
+server modes are supported.
 
 
 Documentation
@@ -26,18 +26,29 @@ See the doc directory for the full usage documentation.
 Compatibility
 =============
 
-This package requires TCL 8.5 or later. It will work with TCL 9. If this
-extension is built against TCL 8.x it will not work with TCL 9 or vice versa.
-It is best to compile both separately then install them with the compatible
-TCL versions.
+TCL
+---
 
+This package requires TCL 8.5 or later. It will also work with TCL 9, but it is
+not binary compatible between major TCL versions. This means if this extension
+is built with TCL 8.x it will not load into TCL 9 or vice versa. It is best
+to compile both separately then install them with the compatible TCL versions.
 
-This package is compatible with:
-- OpenSSL v1.1.1 or later though 3.2+ is preferred. See (http://www.openssl.org/
+OpenSSL
+-------
 
-Note: There are incompatibilities between OpenSSL 1.1.1 and 3.x, so if this
-extension is built against OpenSSL 1.1.1 it will not work with an OpenSSL 3.x
-installation or vice versa.
+This package is compatible with OpenSSL v1.1.1 or later, though 3.2 or later is
+preferred. See http://www.openssl.org/. Please note that there are a few API
+incompatibilities between OpenSSL 1.1.1 and 3.x, so if this extension is built
+against OpenSSL 1.1.1 it is not binary compatible with OpenSSL 3.x or vice
+versa.
+
+TCLTLS
+------
+
+There were several changes made in the callback command arguments between
+versions 1.7 and 2.0. See the doc/tls.html for what changed and library/tls.tcl
+for example handler functions that are backwards compatible.
 
 
 Installation
@@ -119,7 +130,7 @@ TLS 1.4.1    Copyright (C) 2000 Ajuba Solutions
 TLS 1.6      Copyright (C) 2008 ActiveState Software Inc.
 TLS 1.7      Copyright (C) 2016 Matt Newman, Ajuba Solutions, ActiveState
                                 Software Inc, Roy Keene <tcltls@rkeene.org>
-TLS 1.8     Copyright (C) 2023 Brian O'Hagan
+TLS 1.8-2.0  Copyright (C) 2023-2024 Brian O'Hagan
 
 Acknowledgments
 ===============

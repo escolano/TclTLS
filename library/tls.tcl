@@ -353,6 +353,7 @@ proc tls::callback {option chan args} {
 	    log 0 "TLS/$chan: session: lifetime $lifetime"
 	}
 	"verify" {
+	    # Backwards compatible for v1.7
 	    return [tls::validate_command $option $chan {*}$args]
 	}
 	default	{
@@ -363,7 +364,7 @@ proc tls::callback {option chan args} {
 }
 
 #
-# Sample callback when return value is needed
+# Sample callback when return value is needed. New for TLS 1.8+.
 #
 proc tls::validate_command {option chan args} {
     variable debug
@@ -426,6 +427,9 @@ proc tls::xhandshake {chan} {
     }
 }
 
+#
+# Sample callback to get password when needed. Args are new for TLS 1.8+.
+#
 proc tls::password {{option password} {rwflag 0} {size 0}} {
     log 0 "TLS/Password: did you forget to set your passwd!"
     # Return the worlds best kept secret password.
