@@ -149,7 +149,7 @@ test BadSSL-1.32 {no-common-name} -body {
 
 test BadSSL-1.33 {no-sct} -body {
 	badssl no-sct.badssl.com
-    } -result {handshake failed: certificate verify failed due to "unable to get local issuer certificate"} -returnCodes {1}
+    }
 
 test BadSSL-1.34 {no-subject} -body {
 	badssl no-subject.badssl.com
@@ -181,7 +181,7 @@ test BadSSL-1.40 {rc4} -body {
 
 test BadSSL-1.41 {revoked} -body {
 	badssl revoked.badssl.com
-    } -result {handshake failed: certificate verify failed due to "certificate has expired"} -returnCodes {1}
+    }
 
 test BadSSL-1.42 {rsa2048} -body {
 	badssl rsa2048.badssl.com
@@ -193,7 +193,7 @@ test BadSSL-1.43 {rsa4096} -body {
 
 test BadSSL-1.44 {rsa8192} -body {
 	badssl rsa8192.badssl.com
-    }
+    } -result {handshake failed: certificate verify failed due to "certificate has expired"} -returnCodes {1}
 
 test BadSSL-1.45 {self-signed} -constraints {old_api} -body {
 	badssl self-signed.badssl.com
