@@ -240,6 +240,7 @@ install-libraries: libraries
 
 install-doc-html: doc
 	@$(INSTALL_DATA_DIR) "$(DESTDIR)$(pkglibdir)/html"
+	@echo "Installing HTML documentation in $(DESTDIR)$(pkglibdir)/html"
 	@list='doc/*.html'; for i in $$list; do \
 	    if test -f $$i ; then \
 		echo "Installing $$i"; \
@@ -249,11 +250,19 @@ install-doc-html: doc
 
 install-doc-n: doc
 	@$(INSTALL_DATA_DIR) "$(DESTDIR)$(mandir)/mann"
-	@echo "Installing documentation in $(DESTDIR)$(mandir)"
+	@echo "Installing nroff documentation in $(DESTDIR)$(mandir)/mann"
 	@list='doc/*.n'; for i in $$list; do \
 	    if test -f $$i ; then \
-		echo "Installing $$i"; \
-		$(INSTALL_DATA) $$i "$(DESTDIR)$(mandir)/mann" ; \
+		if test -f "$(DESTDIR)$(mandir)/mann/Tcl.n.gz" -o \
+		    "$(DESTDIR)$(mandir)/mann/Tcl*.n.gz" ; then \
+		    gzip -k $$i ; \
+		    echo "Installing $$i.gz"; \
+		    $(INSTALL_DATA) $$i.gz "$(DESTDIR)$(mandir)/mann" ; \
+		    rm -f $$i.gz;\
+		else \
+		    echo "Installing $$i"; \
+		    $(INSTALL_DATA) $$i "$(DESTDIR)$(mandir)/mann" ; \
+		fi; \
 	    fi; \
 	done
 
