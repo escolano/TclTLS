@@ -45,7 +45,7 @@
  */
 
 #define F2N(key, dsp) \
-	(((key) == NULL) ? (char *) NULL : \
+	(((key) == NULL) ? (char *)NULL : \
 		Tcl_TranslateFileName(interp, (key), (dsp)))
 
 static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
@@ -90,8 +90,8 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
 
     dprintf("Called");
 
-    Tcl_Preserve((ClientData) interp);
-    Tcl_Preserve((ClientData) statePtr);
+    Tcl_Preserve((void *) interp);
+    Tcl_Preserve((void *) statePtr);
 
     /* Eval callback with success for ok or return value 1, fail for error or return value 0 */
     Tcl_ResetResult(interp);
@@ -114,8 +114,8 @@ EvalCallback(Tcl_Interp *interp, State *statePtr, Tcl_Obj *cmdPtr) {
 #endif
     }
 
-    Tcl_Release((ClientData) statePtr);
-    Tcl_Release((ClientData) interp);
+    Tcl_Release((void *) statePtr);
+    Tcl_Release((void *) interp);
     return ok;
 }
 
@@ -535,8 +535,8 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 
     dprintf("PasswordCallback: eval callback");
 
-    Tcl_Preserve((ClientData) interp);
-    Tcl_Preserve((ClientData) statePtr);
+    Tcl_Preserve((void *) interp);
+    Tcl_Preserve((void *) statePtr);
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -550,7 +550,7 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
     }
     Tcl_DecrRefCount(cmdPtr);
 
-    Tcl_Release((ClientData) statePtr);
+    Tcl_Release((void *) statePtr);
 
     /* If successful, pass back password string and truncate if too long */
     if (code == TCL_OK) {
@@ -560,10 +560,10 @@ PasswordCallback(char *buf, int size, int rwflag, void *udata) {
 	}
 	strncpy(buf, ret, (size_t) len);
 	buf[len] = '\0';
-	Tcl_Release((ClientData) interp);
+	Tcl_Release((void *) interp);
 	return (int) len;
     }
-    Tcl_Release((ClientData) interp);
+    Tcl_Release((void *) interp);
     return -1;
 }
 
@@ -861,7 +861,7 @@ HelloCallback(SSL *ssl, int *alert, void *arg) {
 
     if (statePtr->vcmd == (Tcl_Obj*)NULL) {
 	return SSL_CLIENT_HELLO_SUCCESS;
-    } else if (ssl == (const SSL *)NULL || arg == (void *)NULL) {
+    } else if (ssl == (const SSL *)NULL || arg == NULL) {
 	return SSL_CLIENT_HELLO_ERROR;
     }
 
@@ -944,23 +944,26 @@ HelloCallback(SSL *ssl, int *alert, void *arg) {
  *-------------------------------------------------------------------
  */
 static const char *protocols[] = {
-	"ssl2", "ssl3", "tls1", "tls1.1", "tls1.2", "tls1.3", NULL
+    "ssl2", "ssl3", "tls1", "tls1.1", "tls1.2", "tls1.3", NULL
 };
 enum protocol {
     TLS_SSL2, TLS_SSL3, TLS_TLS1, TLS_TLS1_1, TLS_TLS1_2, TLS_TLS1_3, TLS_NONE
 };
 
 static int
-CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+CiphersObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj	*const objv[])
+{
     Tcl_Obj *objPtr = NULL;
     SSL_CTX *ctx = NULL;
     SSL *ssl = NULL;
     STACK_OF(SSL_CIPHER) *sk;
     char buf[BUFSIZ];
-    Tcl_Size index;
-    int verbose = 0, use_supported = 0;
+    int index, verbose = 0, use_supported = 0;
     const SSL_METHOD *method;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -983,42 +986,42 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
     switch ((enum protocol)index) {
 	case TLS_SSL2:
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = SSLv2_method(); break;
 #endif
 	case TLS_SSL3:
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3) || defined(OPENSSL_NO_SSL3_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = SSLv3_method(); break;
 #endif
 	case TLS_TLS1:
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1) || defined(OPENSSL_NO_TLS1_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_method(); break;
 #endif
 	case TLS_TLS1_1:
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_1_method(); break;
 #endif
 	case TLS_TLS1_2:
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2_METHOD)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLSv1_2_method(); break;
 #endif
 	case TLS_TLS1_3:
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
-	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *) NULL);
+	    Tcl_AppendResult(interp, protocols[index], ": protocol not supported", (char *)NULL);
 	    return TCL_ERROR;
 #else
 	    method = TLS_method();
@@ -1033,13 +1036,13 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 
     ctx = SSL_CTX_new(method);
     if (ctx == NULL) {
-	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
 	return TCL_ERROR;
     }
 
     ssl = SSL_new(ctx);
     if (ssl == NULL) {
-	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *) NULL);
+	Tcl_AppendResult(interp, GET_ERR_REASON(), (char *)NULL);
 	SSL_CTX_free(ctx);
 	return TCL_ERROR;
     }
@@ -1062,7 +1065,7 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 		/* cipher name or (NONE) */
 		cp = SSL_CIPHER_get_name(c);
 		if (cp == NULL) break;
-		Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj((char *) cp, -1));
+		Tcl_ListObjAppendElement(interp, objPtr, Tcl_NewStringObj(cp, -1));
 	    }
 
 	} else {
@@ -1106,10 +1109,14 @@ CiphersObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
  *
  *-------------------------------------------------------------------
  */
+
 static int
-ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+ProtocolsObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[]) {
     Tcl_Obj *objPtr;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -1161,13 +1168,18 @@ ProtocolsObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *co
  *
  *-------------------------------------------------------------------
  */
-static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+
+static int HandshakeObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[])
+{
     Tcl_Channel chan;        /* The channel to set a mode on. */
     State *statePtr;        /* client state for ssl socket */
     const char *errStr = NULL;
     int ret = 1;
     int err = 0;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -1187,8 +1199,8 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-	    "\": not a TLS channel", (char *) NULL);
-	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "CHANNEL", "INVALID", (char *) NULL);
+		"\": not a TLS channel", (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
     statePtr = (State *)Tcl_GetChannelInstanceData(chan);
@@ -1210,11 +1222,11 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
 	    errStr = Tcl_PosixError(interp);
 	}
 
-	Tcl_AppendResult(interp, "handshake failed: ", errStr, (char *) NULL);
+	Tcl_AppendResult(interp, "handshake failed: ", errStr, (char *)NULL);
 	if ((result = SSL_get_verify_result(statePtr->ssl)) != X509_V_OK) {
-	    Tcl_AppendResult(interp, " due to \"", X509_verify_cert_error_string(result), "\"", (char *) NULL);
+	    Tcl_AppendResult(interp, " due to \"", X509_verify_cert_error_string(result), "\"", (char *)NULL);
 	}
-	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "FAILED", (char *) NULL);
+	Tcl_SetErrorCode(interp, "TLS", "HANDSHAKE", "FAILED", (char *)NULL);
 	dprintf("Returning TCL_ERROR with handshake failed: %s", errStr);
 	return TCL_ERROR;
     } else {
@@ -1246,8 +1258,14 @@ static int HandshakeObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, 
  *
  *-------------------------------------------------------------------
  */
+
 static int
-ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+ImportObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[])
+{
     Tcl_Channel chan;		/* The channel to set a mode on. */
     State *statePtr;		/* client state for ssl socket */
     SSL_CTX *ctx		= NULL;
@@ -1279,7 +1297,6 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     int tls1 = 1, tls1_1 = 1, tls1_2 = 1, tls1_3 = 1;
     int proto = 0, level = -1;
     int verify = 0, require = 0, request = 1, post_handshake = 0;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -1428,15 +1445,15 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	chan = Tcl_GetTopChannel(chan);
 	if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	    Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "CHANNEL", "INVALID", (char *) NULL);
+		    "\": not a TLS channel", (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "CHANNEL", "INVALID", (char *)NULL);
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
 	ctx = ((State *)Tcl_GetChannelInstanceData(chan))->ctx;
     } else {
 	if ((ctx = CTX_Init(statePtr, server, proto, keyfile, certfile, key, cert, key_len,
-	    cert_len, CApath, CAstore, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
+		cert_len, CApath, CAstore, CAfile, ciphers, ciphersuites, level, DHparams)) == NULL) {
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1460,8 +1477,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
     /* Create stacked channel */
     dprintf("Consuming Tcl channel %s", Tcl_GetChannelName(chan));
-    statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), (ClientData) statePtr,
-	(TCL_READABLE | TCL_WRITABLE), chan);
+    statePtr->self = Tcl_StackChannel(interp, Tls_ChannelType(), statePtr, (TCL_READABLE | TCL_WRITABLE), chan);
     dprintf("Created channel named %s", Tcl_GetChannelName(statePtr->self));
     if (statePtr->self == (Tcl_Channel) NULL) {
 	/*
@@ -1491,8 +1507,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     statePtr->ssl = SSL_new(statePtr->ctx);
     if (!statePtr->ssl) {
 	/* SSL library error */
-	Tcl_AppendResult(interp, "couldn't construct ssl session: ", GET_ERR_REASON(), (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "INIT", "FAILED", (char *) NULL);
+	Tcl_AppendResult(interp, "couldn't construct ssl session: ", GET_ERR_REASON(), (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "IMPORT", "INIT", "FAILED", (char *)NULL);
 	Tls_Free((tls_free_type *) statePtr);
 	return TCL_ERROR;
     }
@@ -1502,8 +1518,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Sets the server name indication (SNI) in ClientHello extension */
 	/* Per RFC 6066, hostname is a ASCII encoded string, though RFC 4366 says UTF-8. */
 	if (!SSL_set_tlsext_host_name(statePtr->ssl, servername) && require) {
-	    Tcl_AppendResult(interp, "Set SNI extension failed: ", GET_ERR_REASON(), (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SNI", "FAILED", (char *) NULL);
+	    Tcl_AppendResult(interp, "Set SNI extension failed: ", GET_ERR_REASON(), (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SNI", "FAILED", (char *)NULL);
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1511,8 +1527,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* Set hostname for peer certificate hostname verification in clients.
 	   Don't use SSL_set1_host since it has limitations. */
 	if (!SSL_add1_host(statePtr->ssl, servername)) {
-	    Tcl_AppendResult(interp, "Set DNS hostname failed: ", GET_ERR_REASON(), (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "HOSTNAME", "FAILED", (char *) NULL);
+	    Tcl_AppendResult(interp, "Set DNS hostname failed: ", GET_ERR_REASON(), (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "HOSTNAME", "FAILED", (char *)NULL);
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1523,8 +1539,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* SSL_set_session() */
 	if (!SSL_SESSION_set1_id_context(SSL_get_session(statePtr->ssl),
 		(const unsigned char *) session_id, (unsigned int) strlen(session_id))) {
-	    Tcl_AppendResult(interp, "Resume session failed: ", GET_ERR_REASON(), (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SESSION", "FAILED", (char *) NULL);
+	    Tcl_AppendResult(interp, "Resume session failed: ", GET_ERR_REASON(), (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "SESSION", "FAILED", (char *)NULL);
 	    Tls_Free((tls_free_type *) statePtr);
 	    return TCL_ERROR;
 	}
@@ -1549,8 +1565,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	for (i = 0; i < cnt; i++) {
 	    Tcl_GetStringFromObj(list[i], &len);
 	    if (len > 255) {
-		Tcl_AppendResult(interp, "ALPN protocol names too long", (char *) NULL);
-		Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *) NULL);
+		Tcl_AppendResult(interp, "ALPN protocol names too long", (char *)NULL);
+		Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *)NULL);
 		Tls_Free((tls_free_type *) statePtr);
 		return TCL_ERROR;
 	    }
@@ -1570,8 +1586,8 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	/* SSL_set_alpn_protos makes a copy of the protocol-list */
 	/* Note: This function reverses the return value convention */
 	if (SSL_set_alpn_protos(statePtr->ssl, protos, protos_len)) {
-	    Tcl_AppendResult(interp, "Set ALPN protocols failed: ", GET_ERR_REASON(), (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *) NULL);
+	    Tcl_AppendResult(interp, "Set ALPN protocols failed: ", GET_ERR_REASON(), (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "IMPORT", "ALPN", "FAILED", (char *)NULL);
 	    Tls_Free((tls_free_type *) statePtr);
 	    ckfree(protos);
 	    return TCL_ERROR;
@@ -1659,7 +1675,7 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
      * End of SSL Init
      */
     dprintf("Returning %s", Tcl_GetChannelName(statePtr->self));
-    Tcl_SetResult(interp, (char *) Tcl_GetChannelName(statePtr->self), TCL_VOLATILE);
+    Tcl_SetResult(interp, (char *)Tcl_GetChannelName(statePtr->self), TCL_VOLATILE);
 
     return TCL_OK;
 }
@@ -1679,12 +1695,17 @@ ImportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
  *
  *-------------------------------------------------------------------
  */
+
 static int
-UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+UnimportObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[])
+{
     Tcl_Channel chan, parent;	/* The stacked and underlying channels */
     Tcl_DString upperChannelTranslation, upperChannelBlocking, upperChannelEncoding, upperChannelEOFChar;
     int res = TCL_OK;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -1706,14 +1727,14 @@ UnimportObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *con
     /* Verify is a stacked channel */
     if (parent == NULL) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a stacked channel", (char *) NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *) NULL);
+		"\": not a stacked channel", (char *)NULL);
+	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
 
     /* Flush any pending data */
     if (Tcl_OutputBuffered(chan) > 0 && Tcl_Flush(chan) != TCL_OK) {
-	Tcl_AppendResult(interp, "can't flush channel", (char *) NULL);
+	Tcl_AppendResult(interp, "can't flush channel", (char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -1873,10 +1894,26 @@ TlsLoadClientCAFileFromMemory(Tcl_Interp *interp, SSL_CTX *ctx, Tcl_Obj *file) {
  *
  *-------------------------------------------------------------------
  */
+
 static SSL_CTX *
-CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile,
-    unsigned char *key, unsigned char *cert, Tcl_Size key_len, Tcl_Size cert_len, char *CApath,
-    char *CAstore, char *CAfile, char *ciphers, char *ciphersuites, int level, char *DHparams) {
+CTX_Init(
+    State *statePtr,
+    int isServer,
+    int proto,
+    char *keyfile,
+    char *certfile,
+    unsigned char *key,
+    unsigned char *cert,
+    Tcl_Size key_len,
+    Tcl_Size cert_len,
+    char *CApath,
+    char *CAstore,
+    char *CAfile,
+    char *ciphers,
+    char *ciphersuites,
+    int level,
+    char *DHparams)
+{
     Tcl_Interp *interp = statePtr->interp;
     SSL_CTX *ctx = NULL;
     Tcl_DString ds;
@@ -1887,44 +1924,44 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     dprintf("Called");
 
     if (!proto) {
-	Tcl_AppendResult(interp, "no valid protocol selected", (char *) NULL);
+	Tcl_AppendResult(interp, "no valid protocol selected", (char *)NULL);
 	return NULL;
     }
 
     /* create SSL context */
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L || defined(NO_SSL2) || defined(OPENSSL_NO_SSL2)
     if (ENABLED(proto, TLS_PROTO_SSL2)) {
-	Tcl_AppendResult(interp, "SSL2 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "SSL2 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_SSL3) || defined(OPENSSL_NO_SSL3)
     if (ENABLED(proto, TLS_PROTO_SSL3)) {
-	Tcl_AppendResult(interp, "SSL3 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "SSL3 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1) || defined(OPENSSL_NO_TLS1)
     if (ENABLED(proto, TLS_PROTO_TLS1)) {
-	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "TLS 1.0 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_1) || defined(OPENSSL_NO_TLS1_1)
     if (ENABLED(proto, TLS_PROTO_TLS1_1)) {
-	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "TLS 1.1 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_2) || defined(OPENSSL_NO_TLS1_2)
     if (ENABLED(proto, TLS_PROTO_TLS1_2)) {
-	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "TLS 1.2 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
 #if defined(NO_TLS1_3) || defined(OPENSSL_NO_TLS1_3)
     if (ENABLED(proto, TLS_PROTO_TLS1_3)) {
-	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", (char *) NULL);
+	Tcl_AppendResult(interp, "TLS 1.3 protocol not supported", (char *)NULL);
 	return NULL;
     }
 #endif
@@ -2034,12 +2071,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     /* Set user defined ciphers, cipher suites, and security level */
     if ((ciphers != NULL) && !SSL_CTX_set_cipher_list(ctx, ciphers)) {
-	Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *) NULL);
+	Tcl_AppendResult(interp, "Set ciphers failed: No valid ciphers", (char *)NULL);
 	SSL_CTX_free(ctx);
 	return NULL;
     }
     if ((ciphersuites != NULL) && !SSL_CTX_set_ciphersuites(ctx, ciphersuites)) {
-	Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *) NULL);
+	Tcl_AppendResult(interp, "Set cipher suites failed: No valid ciphers", (char *)NULL);
 	SSL_CTX_free(ctx);
 	return NULL;
     }
@@ -2061,7 +2098,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
     Tcl_DStringInit(&ds);
 #ifdef OPENSSL_NO_DH
     if (DHparams != NULL) {
-	Tcl_AppendResult(interp, "DH parameter support not available", (char *) NULL);
+	Tcl_AppendResult(interp, "DH parameter support not available", (char *)NULL);
 	SSL_CTX_free(ctx);
 	return NULL;
     }
@@ -2074,7 +2111,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    bio = BIO_new_file(F2N(DHparams, &ds), "r");
 	    if (!bio) {
 		Tcl_DStringFree(&ds);
-		Tcl_AppendResult(interp, "Could not find DH parameters file", (char *) NULL);
+		Tcl_AppendResult(interp, "Could not find DH parameters file", (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2083,7 +2120,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    BIO_free(bio);
 	    Tcl_DStringFree(&ds);
 	    if (!dh) {
-		Tcl_AppendResult(interp, "Could not read DH parameters from file", (char *) NULL);
+		Tcl_AppendResult(interp, "Could not read DH parameters from file", (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2093,7 +2130,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	} else {
 	    /* Use well known DH parameters that have built-in support in OpenSSL */
 	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
-		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(), (char *) NULL);
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2109,7 +2146,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	if (SSL_CTX_use_certificate_file(ctx, F2N(certfile, &ds), SSL_FILETYPE_PEM) <= 0) {
 	    Tcl_DStringFree(&ds);
 	    Tcl_AppendResult(interp, "unable to set certificate file ", certfile, ": ",
-		GET_ERR_REASON(), (char *) NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -2117,9 +2154,9 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 
     } else if (cert != NULL) {
 	load_private_key = 1;
-	if (SSL_CTX_use_certificate_ASN1(ctx, (int) cert_len, cert) <= 0) {
+	if (SSL_CTX_use_certificate_ASN1(ctx, cert_len, cert) <= 0) {
 	    Tcl_AppendResult(interp, "unable to set certificate: ",
-		GET_ERR_REASON(), (char *) NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -2129,7 +2166,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	if (SSL_CTX_use_certificate_file(ctx, certfile, SSL_FILETYPE_PEM) <= 0) {
 #if 0
 	    Tcl_AppendResult(interp, "unable to use default certificate file ", certfile, ": ",
-		GET_ERR_REASON(), (char *) NULL);
+		    GET_ERR_REASON(), (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 #endif
@@ -2153,7 +2190,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
 		Tcl_AppendResult(interp, "unable to set public key file ", keyfile, " ",
-		    GET_ERR_REASON(), (char *) NULL);
+			GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2163,7 +2200,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	    if (SSL_CTX_use_PrivateKey_ASN1(EVP_PKEY_RSA, ctx, key, (int) key_len) <= 0) {
 		/* flush the passphrase which might be left in the result */
 		Tcl_SetResult(interp, NULL, TCL_STATIC);
-		Tcl_AppendResult(interp, "unable to set public key: ", GET_ERR_REASON(), (char *) NULL);
+		Tcl_AppendResult(interp, "unable to set public key: ", GET_ERR_REASON(), (char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2172,7 +2209,7 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
 	 * the SSL context */
 	if (!SSL_CTX_check_private_key(ctx)) {
 	    Tcl_AppendResult(interp, "private key does not match the certificate public key",
-			     (char *) NULL);
+			     (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -2290,7 +2327,12 @@ CTX_Init(State *statePtr, int isServer, int proto, char *keyfile, char *certfile
  *-------------------------------------------------------------------
  */
 static int
-StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+StatusObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj	*const objv[])
+{
     State *statePtr;
     X509 *peer;
     Tcl_Obj *objPtr;
@@ -2300,7 +2342,6 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     const unsigned char *proto;
     unsigned int len;
     int nid, res;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -2320,8 +2361,8 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-		"\": not a TLS channel", (char *) NULL);
-	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CHANNEL", "INVALID", (char *) NULL);
+		"\": not a TLS channel", (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "STATUS", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
     statePtr = (State *) Tcl_GetChannelInstanceData(chan);
@@ -2418,7 +2459,12 @@ StatusObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
  *-------------------------------------------------------------------
  */
 
-static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+static int ConnectionInfoObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[])
+{
     Tcl_Channel chan;		/* The channel to set a mode on */
     State *statePtr;		/* client state for ssl socket */
     Tcl_Obj *objPtr, *listPtr;
@@ -2426,7 +2472,6 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     const SSL_CIPHER *cipher;
     const SSL_SESSION *session;
     const EVP_MD *md;
-    (void) clientData;
 
     dprintf("Called");
 
@@ -2444,8 +2489,8 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-	    "\": not a TLS channel", (char *) NULL);
-	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *) NULL);
+	    "\": not a TLS channel", (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -2688,17 +2733,19 @@ static int ConnectionInfoObjCmd(ClientData clientData, Tcl_Interp *interp, int o
  *-------------------------------------------------------------------
  */
 static int
-VersionObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+VersionObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    TCL_UNUSED(int) /* objc */,
+    TCL_UNUSED(Tcl_Obj *const *) /* objv */)
+{
     Tcl_Obj *objPtr;
-    (void) clientData;
-    (void) objc;
-    (void) objv;
 
     dprintf("Called");
 
     objPtr = Tcl_NewStringObj(OPENSSL_VERSION_TEXT, -1);
-    Tcl_SetObjResult(interp, objPtr);
 
+    Tcl_SetObjResult(interp, objPtr);
     return TCL_OK;
 }
 
@@ -2716,13 +2763,17 @@ VersionObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
  *-------------------------------------------------------------------
  */
 static int
-MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[]) {
+MiscObjCmd(
+    TCL_UNUSED(void *),
+    Tcl_Interp *interp,
+    int objc,
+    Tcl_Obj *const objv[])
+{
     static const char *commands [] = { "req", "strreq", NULL };
     enum command { C_REQ, C_STRREQ, C_DUMMY };
     Tcl_Size cmd;
     int isStr;
     char buffer[16384];
-    (void) clientData;
 
     dprintf("Called");
 
@@ -2744,12 +2795,11 @@ MiscObjCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const o
 	    X509 *cert=NULL;
 	    X509_NAME *name=NULL;
 	    Tcl_Obj **listv;
-	    Tcl_Size listc;
-	    int i;
+	    Tcl_Size listc,i;
 
 	    BIO *out=NULL;
 
-	    char *k_C="",*k_ST="",*k_L="",*k_O="",*k_OU="",*k_CN="",*k_Email="";
+	    const char *k_C="",*k_ST="",*k_L="",*k_O="",*k_OU="",*k_CN="",*k_Email="";
 	    char *keyout,*pemout,*str;
 	    int keysize,serial=0,days=365;
 
@@ -3114,7 +3164,7 @@ BuildInfoCommand(Tcl_Interp* interp) {
  *
  *------------------------------------------------------*
  */
-void TlsLibShutdown(ClientData clientData) {
+void TlsLibShutdown(void *clientData) {
     dprintf("Called");
 
     BIO_cleanup();
@@ -3201,20 +3251,20 @@ DLLEXPORT int Tls_Init(Tcl_Interp *interp) {
 #endif
 
     if (TlsLibInit() != TCL_OK) {
-	Tcl_AppendResult(interp, "could not initialize SSL library", (char *) NULL);
+	Tcl_AppendResult(interp, "could not initialize SSL library", (char *)NULL);
 	return TCL_ERROR;
     }
 
-    Tcl_CreateObjCommand(interp, "::tls::ciphers", CiphersObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::connection", ConnectionInfoObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::handshake", HandshakeObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::import", ImportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::unimport", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::unstack", UnimportObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::status", StatusObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::version", VersionObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::misc", MiscObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
-    Tcl_CreateObjCommand(interp, "::tls::protocols", ProtocolsObjCmd, (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::ciphers", CiphersObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::connection", ConnectionInfoObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::handshake", HandshakeObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::import", ImportObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::unimport", UnimportObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::unstack", UnimportObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::status", StatusObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::version", VersionObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::misc", MiscObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
+    Tcl_CreateObjCommand(interp, "::tls::protocols", ProtocolsObjCmd, (void *) NULL, (Tcl_CmdDeleteProc *) NULL);
 
     BuildInfoCommand(interp);
 

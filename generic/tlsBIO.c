@@ -523,9 +523,9 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 	void *parentChannelFdIn_p, *parentChannelFdOut_p;
 	int tclGetChannelHandleRet;
 
-	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, (ClientData) &parentChannelFdIn_p);
+	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, &parentChannelFdIn_p);
 	if (tclGetChannelHandleRet == TCL_OK) {
-	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, (ClientData) &parentChannelFdOut_p);
+	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, &parentChannelFdOut_p);
 	    if (tclGetChannelHandleRet == TCL_OK) {
 		parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
 		parentChannelFdOut = PTR2INT(parentChannelFdOut_p);

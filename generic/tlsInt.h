@@ -68,6 +68,22 @@
 #define Tcl_NewSizeIntFromObj Tcl_NewWideIntObj
 #endif
 
+#ifndef JOIN
+#  define JOIN(a,b) JOIN1(a,b)
+#  define JOIN1(a,b) a##b
+#endif
+
+#ifndef TCL_UNUSED
+# if defined(__cplusplus)
+#   define TCL_UNUSED(T) T
+# elif defined(__GNUC__) && (__GNUC__ > 2)
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__) __attribute__((unused))
+# else
+#   define TCL_UNUSED(T) T JOIN(dummy, __LINE__)
+# endif
+#endif
+
+
 /* Define missing POSIX error codes */
 #ifndef ECONNABORTED
 #define ECONNABORTED	130	/* Software caused connection abort */
