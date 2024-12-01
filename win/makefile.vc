@@ -65,6 +65,26 @@ PRJ_LIBS = \
 # Project specific targets
 #---------------------------------------------------------------------
 
+# Implicit rule to generate html from man files
+# NOTE: this requires doctools from tcllib hence it is not intended
+# to be run during install. Rather, use it to generate a new version
+# of HTML docs to be stored in the repository.
+make-docs-html:
+	"$(_INSTALLDIR)\..\bin\tclsh.exe" "$(_INSTALLDIR)\..\bin\dtplite.tcl" \
+	    -o "$(ROOT)\doc\$(PROJECT).html" html "$(ROOT)\doc\$(PROJECT).man"
+
+make-docs-n:
+	"$(_INSTALLDIR)\..\bin\tclsh.exe" "$(_INSTALLDIR)\..\bin\dtplite.tcl" \
+	    -o "$(ROOT)\doc\$(PROJECT).n" nroff "$(ROOT)\doc\$(PROJECT).man"
+
+make-docs:
+	"$(_INSTALLDIR)\..\bin\tclsh.exe" "$(_INSTALLDIR)\..\bin\dtplite.tcl" \
+	    -o "$DOCDIR" html "$(ROOT)\doc"
+	"$(_INSTALLDIR)\..\bin\tclsh.exe" "$(_INSTALLDIR)\..\bin\dtplite.tcl" \
+	    -o "$DOCDIR" nroff "$(ROOT)\doc"
+
+docs: make-docs-n make-docs-html 
+
 all: setup default-target
 
 clean: default-clean
