@@ -1,805 +1,773 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="Copyright" content="1999 Matt Newman / 2004 Starfish Systems">
-<title>TLS (SSL) TCL Commands</title>
-<link rel="stylesheet" href="docs.css" type="text/css" media="all">
+<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tls - Tcl TLS extension</title>
+<style type="text/css"><!--
+    HTML {
+	background: 	#FFFFFF;
+	color: 		black;
+    }
+    BODY {
+	background: 	#FFFFFF;
+	color:	 	black;
+    }
+    DIV.doctools {
+	margin-left:	10%;
+	margin-right:	10%;
+    }
+    DIV.doctools H1,DIV.doctools H2 {
+	margin-left:	-5%;
+    }
+    H1, H2, H3, H4 {
+	margin-top: 	1em;
+	font-family:	sans-serif;
+	font-size:	large;
+	color:		#005A9C;
+	background: 	transparent;
+	text-align:		left;
+    }
+    H1.doctools_title {
+	text-align: center;
+    }
+    UL,OL {
+	margin-right: 0em;
+	margin-top: 3pt;
+	margin-bottom: 3pt;
+    }
+    UL LI {
+	list-style: disc;
+    }
+    OL LI {
+	list-style: decimal;
+    }
+    DT {
+	padding-top: 	1ex;
+    }
+    UL.doctools_toc,UL.doctools_toc UL, UL.doctools_toc UL UL {
+	font:		normal 12pt/14pt sans-serif;
+	list-style:	none;
+    }
+    LI.doctools_section, LI.doctools_subsection {
+	list-style: 	none;
+	margin-left: 	0em;
+	text-indent:	0em;
+	padding: 	0em;
+    }
+    PRE {
+	display: 	block;
+	font-family:	monospace;
+	white-space:	pre;
+	margin:		0%;
+	padding-top:	0.5ex;
+	padding-bottom:	0.5ex;
+	padding-left:	1ex;
+	padding-right:	1ex;
+	width:		100%;
+    }
+    PRE.doctools_example {
+	color: 		black;
+	background: 	#f5dcb3;
+	border:		1px solid black;
+    }
+    UL.doctools_requirements LI, UL.doctools_syntax LI {
+	list-style: 	none;
+	margin-left: 	0em;
+	text-indent:	0em;
+	padding:	0em;
+    }
+    DIV.doctools_synopsis {
+	color: 		black;
+	background: 	#80ffff;
+	border:		1px solid black;
+	font-family:	serif;
+	margin-top: 	1em;
+	margin-bottom: 	1em;
+    }
+    UL.doctools_syntax {
+	margin-top: 	1em;
+	border-top:	1px solid black;
+    }
+    UL.doctools_requirements {
+	margin-bottom: 	1em;
+	border-bottom:	1px solid black;
+    }
+--></style>
 </head>
-
-<body class="vsc-initialized">
-
-<h2>TCL Tls Extension Documentation</h2>
-
-<dl>
-    <dd><a href="#NAME">NAME</a>
-    <dl>
-	<dd><b>tls</b> - binding to <b>OpenSSL</b> library
-	for encrypted socket and I/O channel communications.</dd>
-    </dl>
-    </dd>
-    <dd><a href="#SYNOPSIS">SYNOPSIS</a> </dd>
-    <dd><dl>
-	<dd><b>package require Tcl</b> <em>?<b>8.5-</b>?</em></dd>
-	<dd><b>package require tls</b> <em>?<b>1.8-</b>?</em></dd>
-	<dt>&nbsp;</dt>
-	<dd><b>tls::init</b> <em>?options?</em> </dd>
-	<dd><b>tls::socket</b> <em>?options? host port</em></dd>
-	<dd><b>tls::socket</b> <em>?-server command? ?options? port</em></dd>
-	<dd><b>tls::handshake</b> <em> channel</em></dd>
-	<dd><b>tls::status</b> <em>?-local? channel</em></dd>
-	<dd><b>tls::connection</b> <em>channel</em></dd>
-	<dd><b>tls::import</b> <em>channel ?options?</em></dd>
-	<dd><b>tls::unimport</b> <em>channel</em></dd>
-	<dt>&nbsp;</dt>
-	<dd><b>tls::ciphers</b> <em>?protocol? ?verbose? ?supported?</em></dd>
-	<dd><b>tls::protocols</b></dd>
-	<dd><b>tls::version</b></dd>
-    </dl></dd>
-    <dd><a href="#COMMANDS">COMMANDS</a></dd>
-    <dd><a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a></dd>
-    <dd><a href="#CALLBACK OPTIONS">CALLBACK OPTIONS</a></dd>
-    <dd><a href="#DEBUG">DEBUG</a></dd>
-    <dd><a href="#HTTPS EXAMPLE">HTTPS EXAMPLE</a></dd>
-    <dd><a href="#SPECIAL CONSIDERATIONS">SPECIAL CONSIDERATIONS</a></dd>
-    <dd><a href="#See Also">See Also</a></dd>
-    <dd><a href="#KEYWORDS">KEYWORDS</a></dd>
-</dl>
-<br>
-
-<hr>
-
-<h3><a name="NAME">NAME</a></h3>
-
-<p><strong>tls</strong> - binding to <strong>OpenSSL</strong> library
-for encrypted socket and I/O channel communications.</p>
-<br>
-
-<hr>
-
-<h3><a name="SYNOPSIS">SYNOPSIS</a></h3>
-
-<p><b>package require Tcl</b> <em>?<b>8.5-</b>?</em><br>
-<b>package require tls</b> <em>?<b>1.8-</b>?</em><br>
-<br>
-<a href="#tls::init"><b>tls::init</b> <i>?options?</i></a><br>
-<a href="#tls::socket"><b>tls::socket</b> <i>?options? host port</i><br>
-<a href="#tls::socket"><b>tls::socket</b> <i>?-server command? ?options? port</i></a><br>
-<a href="#tls::status"><b>tls::status</b> <i>?-local? channel</i></a><br>
-<a href="#tls::connection"><b>tls::connection</b> <i>channel</i></a><br>
-<a href="#tls::handshake"><b>tls::handshake</b> <i>channel</i></a><br>
-<a href="#tls::import"><b>tls::import</b> <i>channel ?options?</i></a><br>
-<a href="#tls::unimport"><b>tls::unimport</b> <i>channel</i></a><br>
-<br>
-<a href="#tls::ciphers"><b>tls::ciphers</b> <i>?protocol? ?verbose? ?supported?</i></a><br>
-<a href="#tls::protocols"><b>tls::protocols</b></a><br>
-<a href="#tls::version"><b>tls::version</b></a><br>
-</p>
-<br>
-
-<hr>
-
-<h3><a name="DESCRIPTION">DESCRIPTION</a></h3>
-
+<!-- Generated from file 'tls.man' by tcllib/doctools with format 'html'
+   -->
+<!-- Copyright &amp;copy; 1999 Matt Newman   -- Copyright &amp;copy; 2004 Starfish Systems   -- Copyright &amp;copy; 2024 Brian O'Hagan
+   -->
+<!-- tls.n
+   -->
+<body><div class="doctools">
+<h1 class="doctools_title">tls(n) 1.8 tls &quot;Tcl TLS extension&quot;</h1>
+<div id="name" class="doctools_section"><h2><a name="name">Name</a></h2>
+<p>tls - binding to the OpenSSL library for encrypted socket and I/O channel communications</p>
+</div>
+<div id="toc" class="doctools_section"><h2><a name="toc">Table Of Contents</a></h2>
+<ul class="doctools_toc">
+<li class="doctools_section"><a href="#toc">Table Of Contents</a></li>
+<li class="doctools_section"><a href="#synopsis">Synopsis</a></li>
+<li class="doctools_section"><a href="#section1">Description</a></li>
+<li class="doctools_section"><a href="#section2">Commands</a></li>
+<li class="doctools_section"><a href="#section3">Certificate Validation</a>
+<ul>
+<li class="doctools_subsection"><a href="#subsection1">Summary of command line options</a></li>
+<li class="doctools_subsection"><a href="#subsection2">When are command line options needed?</a></li>
+</ul>
+</li>
+<li class="doctools_section"><a href="#section4">Callback Options</a>
+<ul>
+<li class="doctools_subsection"><a href="#subsection3">Values for Command Callback</a></li>
+<li class="doctools_subsection"><a href="#subsection4">Values for Password Callback</a></li>
+<li class="doctools_subsection"><a href="#subsection5">Values for Validate Command Callback</a></li>
+</ul>
+</li>
+<li class="doctools_section"><a href="#section5">Debug</a></li>
+<li class="doctools_section"><a href="#section6">Debug Examples</a></li>
+<li class="doctools_section"><a href="#section7">HTTP Package Examples</a></li>
+<li class="doctools_section"><a href="#section8">Special Considerations</a></li>
+<li class="doctools_section"><a href="#see-also">See Also</a></li>
+<li class="doctools_section"><a href="#keywords">Keywords</a></li>
+<li class="doctools_section"><a href="#category">Category</a></li>
+<li class="doctools_section"><a href="#copyright">Copyright</a></li>
+</ul>
+</div>
+<div id="synopsis" class="doctools_section"><h2><a name="synopsis">Synopsis</a></h2>
+<div class="doctools_synopsis">
+<ul class="doctools_requirements">
+<li>package require <b class="pkgname">Tcl 8.5-</b></li>
+<li>package require <b class="pkgname">tls 1.8</b></li>
+</ul>
+<ul class="doctools_syntax">
+<li><a href="#1"><b class="cmd">tls::init</b> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span></a></li>
+<li><a href="#2"><b class="cmd">tls::socket</b> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span> <i class="arg">host</i> <i class="arg">port</i></a></li>
+<li><a href="#3"><b class="cmd">tls::socket</b> <b class="option">-server</b> <i class="arg">command</i> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span> <i class="arg">port</i></a></li>
+<li><a href="#4"><b class="cmd">tls::import</b> <i class="arg">channel</i> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span></a></li>
+<li><a href="#5"><b class="cmd">tls::unimport</b> <i class="arg">channel</i></a></li>
+<li><a href="#6"><b class="cmd">tls::handshake</b> <i class="arg">channel</i></a></li>
+<li><a href="#7"><b class="cmd">tls::status</b> <span class="opt">?<b class="option">-local</b>?</span> <i class="arg">channel</i></a></li>
+<li><a href="#8"><b class="cmd">tls::connection</b> <i class="arg">channel</i></a></li>
+<li><a href="#9"><b class="cmd">tls::ciphers</b> <span class="opt">?<i class="arg">protocol</i>?</span> <span class="opt">?<i class="arg">verbose</i>?</span> <span class="opt">?<i class="arg">supported</i>?</span></a></li>
+<li><a href="#10"><b class="cmd">tls::protocols</b></a></li>
+<li><a href="#11"><b class="cmd">tls::version</b></a></li>
+</ul>
+</div>
+</div>
+<div id="section1" class="doctools_section"><h2><a name="section1">Description</a></h2>
 <p>This extension provides TCL script access to secure socket communications
 using the Transport Layer Security (TLS) protocol. It provides a generic
 binding to <a href="https://www.openssl.org/">OpenSSL</a>, utilizing the
-<strong>Tcl_StackChannel</strong> API in TCL 8.4 and higher.
+<b class="syscmd">Tcl_StackChannel</b> API in TCL 8.4 and higher.
 These sockets behave exactly the same as channels created using the built-in
-<strong>socket</strong> command, along with additional options for controlling
-the SSL/TLS session.
-</p>
-<br>
-
-<hr>
-
-<h3><a name="COMMANDS">COMMANDS</a></h3>
-
-<p>Typically one would use the <strong>tls::socket </strong>command
-which provides compatibility with the native TCL <strong>socket</strong>
-command. In such cases <strong>tls::import</strong> should not be
-used directly.</p>
-<dl>
-    <dt><a name="tls::init"><b>tls::init </b><i>?options?</i></a></dt>
-    <dd>Optional function to set the default options used by
-	<strong>tls::socket</strong>. If you call <strong>tls::import</strong>
-	directly, this command has no effect. This command supports all of the
-	same options as the <strong>tls::socket</strong> command, though you
-	should limit your options to only TLS related ones.</dd>
-    <dt>&nbsp;</dt>
-    <dt><a name="tls::socket"><b>tls::socket </b><em>?options?
-	host port</em></a></dt>
-    <dt><b>tls::socket</b><em> ?-server command? ?options? port</em></dt>
-    <dd>This is a helper function that utilizes the underlying commands
-	(<strong>socket</strong> and <strong>tls::import</strong>) to create
-	the connection. It behaves the same as the native TCL <strong>socket</strong>
-	command, but also supports the <a href="#tls::import"><strong>tls:import</strong></a>
-	command options and one additional option:</dd>
-    <dl><blockquote>
-	<dt><strong>-autoservername</strong> <em>bool</em></dt>
-	<dd>Automatically set the -servername argument to the <em>host</em>
-	argument (default is <em>false</em>).</dd>
-    </blockquote></dl>
-
-    <dt><a name="tls::import"><b>tls::import </b><i>channel
-	?options?</i></a></dt>
-    <dd>Add SSL/TLS encryption to a regular TCL channel. It need
-	not be a socket, but must provide bi-directional flow. Also
-	set session parameters for SSL handshake.</dd>
-    <dl><blockquote>
-	<dt><strong>-alpn</strong> <em>list</em></dt>
-	<dd>List of protocols to offer during Application-Layer
-	    Protocol Negotiation (ALPN). For example: <em>h2</em> and
-	    <em>http/1.1</em>, but not <em>h3</em> or <em>quic</em>.</dd>
-	<dt><strong>-cadir</strong> <em>dir</em></dt>
-	<dd>Specifies the directory where the Certificate Authority (CA)
-	    certificates are stored. The default is platform specific and can be
-	    set at compile time. The default location can be overridden via the
-	    <b>SSL_CERT_DIR</b> environment variable.
-	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
-	<dt><strong>-cafile </strong><em>filename</em></dt>
-	<dd>Specifies the file with the Certificate Authority (CA) certificates
-	    to use. The default is <b>cert.pem</b>, in the OpenSSL directory.
-	    The default file can be overridden via the <b>SSL_CERT_FILE</b>
-	    environment variable.
-	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
-	<dt><strong>-castore</strong> <em>URI</em></dt>
-	<dd>URI for a Certificate Authority (CA) store, which may be a single
-	    container or a catalog of containers. Starting with OpenSSL 3.2 on
-	    Windows, set to "org.openssl.winstore://" to use the built-in
-	    Windows Cert Store. The Windows cert store only supports root
-	    certificate stores.
-	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
-	<dt><strong>-certfile</strong> <em>filename</em></dt>
-	<dd>Specifies the file with the certificate to use in PEM format.
-	    This also contains the public key.</dd>
-	<dt><strong>-cert</strong> <em>binary_string</em></dt>
-	<dd>Specifies the certificate to use as a DER encoded string (X.509 DER).</dd>
-	<dt><strong>-cipher</strong> <em>string</em></dt>
-	<dd>Specifies the list of ciphers to use for TLS 1.2 and earlier. String is a
-	    colon (":") separated list of ciphers. Ciphers can be combined using the
-	    <b>+</b> character. Prefixes can be used to permanently remove ("!"),
-	    delete ("-"), or move a cipher to the end of the list ("+"). Keywords
-	    <b>@STRENGTH</b> (sort by algorithm key length), <b>@SECLEVEL=</b><i>n</i>
-	    (set security level to n), and <b>DEFAULT</b> (use default cipher list,
-	    at start only) can also be specified. See OpenSSL documentation for the
-	    full list of valid values.</dd>
-	<dt><strong>-ciphersuites</strong> <em>string</em></dt>
-	<dd>Specifies the list of cipher suites to use for TLS 1.3. String is a colon
-	    (":") separated list of cipher suite names.</dd>
-	<dt><strong>-command</strong> <em>callback</em></dt>
-	<dd>Specifies the callback command to be invoked at several points during the
-	    handshake to pass errors, tracing information, and protocol messages.
-	    See <a href="#CALLBACK OPTIONS">CALLBACK OPTIONS</a> for more info.</dd>
-	<dt><strong>-dhparams </strong><em>filename</em></dt>
-	<dd>Specifies the Diffie-Hellman (DH) parameters file.</dd>
-	<dt><strong>-keyfile</strong> <em>filename</em></dt>
-	<dd>Specifies the private key file. (default is value of -certfile).</dd>
-	<dt><strong>-key</strong> <em>filename</em></dt>
-	<dd>Specifies the private key to use as a DER encoded string (PKCS#1 DER).</dd>
-	<dt><strong>-model</strong> <em>channel</em></dt>
-	<dd>Force this channel to share the same <em><strong>SSL_CTX</strong></em>
-	    structure as the specified <em>channel</em>, and
-	    therefore share callbacks etc.</dd>
-	<dt><strong>-password</strong> <em>callback</em></dt>
-	<dd>Specifies the callback command to invoke when OpenSSL needs to
-	    obtain a password. This is typically used to unlock the private key of
-	    a certificate. The callback should return a password string.
-	    See <a href="#CALLBACK OPTIONS">CALLBACK OPTIONS</a> for more info.</dd>
-	<dt><strong>-post_handshake</strong> <em>bool</em></dt>
-	<dd>Allow post-handshake session ticket updates.</dd>
-	<dt><strong>-request </strong><em>bool</em></dt>
-	<dd>Request a certificate from peer during the SSL handshake. This is
-	    needed to do certificate validation. (default is <em>true</em>).
-	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
-	<dt><strong>-require</strong> <em>bool</em></dt>
-	<dd>Require a valid certificate from peer during SSL handshake. If this
-	    is set to true, then <strong>-request</strong> must also be set to
-	    true and a either a -cadir, -cafile, -castore, or platform default
-	    must be provided in order to validate against. (default is <em>false</em>).
-	    See <a href="#CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a>.</dd>
-	<dt><strong>-security_level</strong> <em>integer</em></dt>
-	<dd>Specifies the security level (value from 0 to 5). The security level
-	    affects the cipher suite encryption algorithms, supported ECC curves,
-	    supported signature algorithms, DH parameter sizes, certificate key
-	    sizes and signature algorithms. The default is 1 prior to OpenSSL 3.2
-	    and 2 thereafter. Level 3 and higher disable support for session
-	    tickets and only accept cipher suites that provide forward secrecy.</dd>
-	<dt><strong>-server</strong> <em>bool</em></dt>
-	<dd>Specifies whether to act as a server and respond with a server
-	    handshake when a client connects and provides a client handshake.
-	    (default is <em>false</em>)</dd>
-	<dt><strong>-servername</strong> <em>host</em></dt>
-	<dd>Specify server's hostname. This is used to set the TLS Server Name
-	    Indication (SNI) extension. Set this to the expected servername in the
-	   server's certificate or one of the subjectAltName alternates.</dd>
-	<dt><strong>-session_id</strong> <em>string</em></dt>
-	<dd>Specifies the session id to resume session.</dd>
-	<dt><strong>-ssl2</strong> <em>bool</em></dt>
-	<dd>Enable use of SSL v2. (default is <em>false</em>).
-	Note: Recent versions of OpenSSL don't support SSLv2.</dd>
-	<dt><strong>-ssl3 </strong><em>bool</em></dt>
-	<dd>Enable use of SSL v3. (default is <em>false</em>).
-	Note: SSL v3 must also be enabled with a compile time option.</dd>
-	<dt>-<strong>tls1</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1. (default is <em>true</em>).
-	Note: TLS 1.0 needs SHA1 to operate, which is only available in
-	security level 0 for Open SSL 3.0+.</dd>
-	<dt>-<strong>tls1.1</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1.1 (default is <em>true</em>).
-	Note: TLS 1.1 needs SHA1 to operate, which is only available in
-	security level 0 for Open SSL 3.0+.</dd>
-	<dt>-<strong>tls1.2</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1.2 (default is <em>true</em>)</dd>
-	<dt>-<strong>tls1.3</strong> <em>bool</em></dt>
-	<dd>Enable use of TLS v1.3 (default is <em>true</em>)</dd>
-	<dt><strong>-validatecommand</strong> <em>callback</em></dt>
-	<dd>Specifies the callback command to invoke to validate protocol
-	    config parameters during the protocol negotiation phase. This can be
-	    used by TCL scripts to perform their own certificate validation to
-	    supplement the default validation provided by OpenSSL. The script must
-	    return a boolean true to continue the negotiation. See
-	    <a href="#CALLBACK OPTIONS">CALLBACK OPTIONS</a> for more info.</dd>
-    </blockquote></dl>
-    <dt><a name="tls::unimport"><b>tls::unimport </b><i>channel</i></a></dt>
-    <dd>Provided for symmetry to <strong>tls::import</strong>, this
-	unstacks the encryption of a regular TCL channel. An error
-	is thrown if TLS is not the top stacked channel type.</dd>
-    <dt>&nbsp;</dt>
-    <dt><a name="tls::handshake"><strong>tls::handshake</strong>
-	<em>channel</em></a></dt>
-    <dd>Forces handshake to take place, and returns 0 if
-	handshake is still in progress (non-blocking), or 1 if
-	the handshake was successful. If the handshake failed
-	this routine will throw an error.</dd>
-    <dt>&nbsp;</dt>
-    <dt><a name="tls::status"><strong>tls::status</strong>
-	<em>?</em><b>-local</b><em>? channel</em></a></dt>
-    <dd>Returns the current status of an SSL channel. The result is a list
-	of key-value pairs describing the SSL, certificate, and certificate
-	verification status. If the SSL handshake has not yet completed,
-	an empty list is returned. If <b>-local</b> is specified, then the
-	local certificate is used.</dd>
-    <blockquote>
-    <b>SSL Status</b>
-    <dl>
-	<dt><strong>alpn</strong> <em>protocol</em></dt>
-	<dd>The protocol selected after Application-Layer Protocol
-	    Negotiation (ALPN).</dd>
-	<dt><strong>cipher</strong> <em>cipher</em></dt>
-	<dd>The current cipher in use for the session.</dd>
-	<dt><strong>peername</strong> <em>name</em></dt>
-	<dd>The peername from the certificate.</dd>
-	<dt><strong>protocol</strong> <em>version</em></dt>
-	<dd>The protocol version used for the connection:
-	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
-	<dt><strong>sbits</strong> <em>n</em></dt>
-	<dd>The number of bits used for the session key.</dd>
-	<dt><strong>signatureHashAlgorithm</strong> <em>algorithm</em></dt>
-	<dd>The signature hash algorithm.</dd>
-	<dt><strong>signatureType</strong> <em>type</em></dt>
-	<dd>The signature type value.</dd>
-	<dt><strong>verifyDepth</strong> <em>n</em></dt>
-	<dd>Maximum depth for the certificate chain verification.
-	    Default is -1, to check all.</dd>
-	<dt><strong>verifyMode</strong> <em>list</em></dt>
-	<dd>List of certificate verification modes.</dd>
-	<dt><strong>verifyResult</strong> <em>result</em></dt>
-	<dd>Certificate verification result.</dd>
-	<dt><strong>ca_names</strong> <em>list</em></dt>
-	<dd>List of the Certificate Authorities used to create the certificate.</dd>
-    </dl>
-    <b>Certificate Status</b>
-    <dl>
-	<dt><strong>all</strong> <em>string</em></dt>
-	<dd>Dump of all certificate info.</dd>
-	<dt><strong>version</strong> <em>value</em></dt>
-	<dd>The certificate version.</dd>
-	<dt><strong>serialNumber</strong> <em>n</em></dt>
-	<dd>The serial number of the certificate as a hex string.</dd>
-	<dt><strong>signature</strong> <em>algorithm</em></dt>
-	<dd>Cipher algorithm used for certificate signature.</dd>
-	<dt><strong>issuer</strong> <em>dn</em></dt>
-	<dd>The distinguished name (DN) of the certificate issuer.</dd>
-	<dt><strong>notBefore</strong> <em>date</em></dt>
-	<dd>The beginning date of the certificate validity.</dd>
-	<dt><strong>notAfter</strong> <em>date</em></dt>
-	<dd>The expiration date of the certificate validity.</dd>
-	<dt><strong>subject</strong> <em>dn</em></dt>
-	<dd>The distinguished name (DN) of the certificate subject.
-	    Fields include: Common Name (CN), Organization (O), Locality
-	    or City (L), State or Province (S), and Country Name (C).</dd>
-	<dt><strong>issuerUniqueID</strong> <em>string</em></dt>
-	<dd>The issuer unique id.</dd>
-	<dt><strong>subjectUniqueID</strong> <em>string</em></dt>
-	<dd>The subject unique id.</dd>
-	<dt><strong>num_extensions</strong> <em>n</em></dt>
-	<dd>Number of certificate extensions.</dd>
-	<dt><strong>extensions</strong> <em>list</em></dt>
-	<dd>List of certificate extension names.</dd>
-	<dt><strong>authorityKeyIdentifier</strong> <em>string</em></dt>
-	<dd>(AKI) Key identifier of the Issuing CA certificate that signed
-	    the SSL certificate as a hex string. This value matches the SKI
-	    value of the Intermediate CA certificate.</dd>
-	<dt><strong>subjectKeyIdentifier</strong> <em>string</em></dt>
-	<dd>(SKI) Hash of the public key inside the certificate as a hex
-	    string. Used to identify certificates that contain a particular
-	    public key.</dd>
-	<dt><strong>subjectAltName</strong> <em>list</em></dt>
-	<dd>List of all of the alternative domain names, sub domains,
-	    and IP addresses that are secured by the certificate.</dd>
-	<dt><strong>ocsp</strong> <em>list</em></dt>
-	<dd>List of all Online Certificate Status Protocol (OCSP) URLs.</dd>
-	<dt><strong>certificate</strong> <em>cert</em></dt>
-	<dd>The PEM encoded certificate.</dd>
-	<dt><strong>signatureAlgorithm</strong> <em>algorithm</em></dt>
-	<dd>Cipher algorithm used for the certificate signature.</dd>
-	<dt><strong>signatureValue</strong> <em>string</em></dt>
-	<dd>Certificate signature as a hex string.</dd>
-	<dt><strong>signatureDigest</strong> <em>version</em></dt>
-	<dd>Certificate signing digest as a hex string.</dd>
-	<dt><strong>publicKeyAlgorithm</strong> <em>algorithm</em></dt>
-	<dd>Certificate signature public key algorithm.</dd>
-	<dt><strong>publicKey</strong> <em>string</em></dt>
-	<dd>Certificate signature public key as a hex string.</dd>
-	<dt><strong>bits</strong> <em>n</em></dt>
-	<dd>Number of bits used for certificate signature key.</dd>
-	<dt><strong>self_signed</strong> <em>boolean</em></dt>
-	<dd>Whether the certificate signature is self signed.</dd>
-	<dt><strong>sha1_hash</strong> <em>hash</em></dt>
-	<dd>The SHA1 hash of the certificate as a hex string.</dd>
-	<dt><strong>sha256_hash</strong> <em>hash</em></dt>
-	<dd>The SHA256 hash of the certificate as a hex string.</dd>
-    </dl>
-    </blockquote>
-
-    <dt><a name="tls::connection"><strong>tls::connection</strong>
-    <em>channel</em></a></dt>
-    <dd>Returns the current connection status of an SSL channel. The
-	result is a list of key-value pairs describing the connection.</dd>
-    <blockquote>
-    <b>SSL Status</b>
-    <dl>
-	<dt><strong>state</strong> <em>state</em></dt>
-	<dd>State of the connection.</dd>
-	<dt><strong>servername</strong> <em>name</em></dt>
-	<dd>The name of the connected to server.</dd>
-	<dt><strong>protocol</strong> <em>version</em></dt>
-	<dd>The protocol version used for the connection:
-	    SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</dd>
-	<dt><strong>renegotiation_allowed</strong> <em>boolean</em></dt>
-	<dd>Whether protocol renegotiation is supported or not.</dd>
-	<dt><strong>security_level</strong> <em>level</em></dt>
-	<dd>The security level used for selection of ciphers, key size, etc.</dd>
-	<dt><strong>session_reused</strong> <em>boolean</em></dt>
-	<dd>Whether the session has been reused or not.</dd>
-	<dt><strong>is_server</strong> <em>boolean</em></dt>
-	<dd>Whether the connection is configured as a server (1) or client (0).</dd>
-	<dt><strong>compression</strong> <em>mode</em></dt>
-	<dd>Compression method.</dd>
-	<dt><strong>expansion</strong> <em>mode</em></dt>
-	<dd>Expansion method.</dd>
-	<dt><strong>caList</strong> <em>list</em></dt>
-	<dd>List of Certificate Authorities (CA) for X.509 certificate.</dd>
-    </dl>
-    <b>Cipher Info</b>
-    <dl>
-	<dt><strong>cipher</strong> <em>cipher</em></dt>
-	<dd>The current cipher in use for the connection.</dd>
-	<dt><strong>standard_name</strong> <em>name</em></dt>
-	<dd>The standard RFC name of cipher.</dd>
-	<dt><strong>algorithm_bits</strong> <em>n</em></dt>
-	<dd>The number of processed bits used for cipher.</dd>
-	<dt><strong>secret_bits</strong> <em>n</em></dt>
-	<dd>The number of secret bits used for cipher.</dd>
-	<dt><strong>min_version</strong> <em>version</em></dt>
-	<dd>The minimum protocol version for cipher.</dd>
-	<dt><strong>cipher_is_aead</strong> <em>boolean</em></dt>
-	<dd>Whether the cipher is Authenticated Encryption with
-	    Associated Data (AEAD).</dd>
-	<dt><strong>cipher_id</strong> <em>id</em></dt>
-	<dd>The OpenSSL cipher id.</dd>
-	<dt><strong>description</strong> <em>string</em></dt>
-	<dd>A text description of the cipher.</dd>
-	<dt><strong>handshake_digest</strong> <em>boolean</em></dt>
-	<dd>Digest used during handshake.</dd>
-    </dl>
-    <b>Session Info</b>
-    <dl>
-	<dt><strong>alpn</strong> <em>protocol</em></dt>
-	<dd>The protocol selected after Application-Layer Protocol
-	    Negotiation (ALPN).</dd>
-	<dt><strong>resumable</strong> <em>boolean</em></dt>
-	<dd>Whether the session can be resumed or not.</dd>
-	<dt><strong>start_time</strong> <em>seconds</em></dt>
-	<dd>Time since session started in seconds since epoch.</dd>
-	<dt><strong>timeout</strong> <em>seconds</em></dt>
-	<dd>Max duration of session in seconds before time-out.</dd>
-	<dt><strong>lifetime</strong> <em>seconds</em></dt>
-	<dd>Session ticket lifetime hint in seconds.</dd>
-	<dt><strong>session_id</strong> <em>binary_string</em></dt>
-	<dd>Unique session id for use in resuming the session.</dd>
-	<dt><strong>session_ticket</strong> <em>binary_string</em></dt>
-	<dd>Unique session ticket for use in resuming the session.</dd>
-	<dt><strong>ticket_app_data</strong> <em>binary_string</em></dt>
-	<dd>Unique session ticket application data.</dd>
-	<dt><strong>master_key</strong> <em>binary_string</em></dt>
-	<dd>Unique session master key.</dd>
-	<dt><strong>session_cache_mode</strong> <em>mode</em></dt>
-	<dd>Server cache mode (client, server, or both).</dd>
-    </dl>
-    </blockquote>
-
-    <dt><a name="tls::ciphers"><strong>tls::ciphers</strong>
-	<em>?protocol? ?verbose? ?supported?</em></a></dt>
-    <dd>Without any args, returns a list of all symmetric ciphers for use
-	with the <strong>-cipher</strong> option. With <em>protocol</em>,
-	only the ciphers supported for that protocol are returned. See
-	<a href="#tls::protocols"><strong>tls::protocols</strong></a> command
-	for the supported protocols. If <em>verbose</em> is specified as true
-	then a verbose, human readable list is returned with additional
-	information on the cipher. If <em>supported</em> is specified as true,
-	then only the ciphers supported for protocol will be listed.</dd>
-    <dt>&nbsp;</dt>
-    <dt><a name="tls::protocols"><strong>tls::protocols</strong></a></dt>
-    <dd>Returns a list of the supported SSL/TLS protocols. Valid values are:
-	<b>ssl2</b>, <b>ssl3</b>, <b>tls1</b>, <b>tls1.1</b>, <b>tls1.2</b>,
-	and <b>tls1.3</b>. Exact list depends on OpenSSL version and
-	compile time flags.</dd>
-    <dt>&nbsp;</dt>
-    <dt><a name="tls::version"><strong>tls::version</strong></a></dt>
-    <dd>Returns the OpenSSL version string.</dd>
-</dl>
-<br>
-
-<hr>
-
-<h3><a name="CERTIFICATE VALIDATION">CERTIFICATE VALIDATION</a></h3>
-
-<h4>Summary of command line options:</h4>
-<p>The following options are used for certificate validation:</p>
-<ul>
-<li>The <b>-cadir</b> option specifies the directory where the Certificate
-Authority (CA) certificates are stored. The default is platform specific, but
-is usually "/etc/ssl/certs" on Linux/Unix systems. The default location can be
-overridden via the <b>SSL_CERT_DIR</b> environment variable.</li>
-<li>The <b>-cafile </b> option specifies the file that contains all of the
-Certificate Authority (CA) certificates in the PEM file format. The default is
-<b>cert.pem</b>, in the OpenSSL directory. On Linux/Unix systems, this is
-usually "/etc/ssl/ca-bundle.pem". The default file can be overridden via the
-<b>SSL_CERT_FILE</b> environment variable.</li>
-<li>The <b>-castore</b> option contains the URI to the Certificate Authority
+<b class="syscmd">socket</b> command, along with additional options for controlling
+the SSL/TLS session.</p>
+</div>
+<div id="section2" class="doctools_section"><h2><a name="section2">Commands</a></h2>
+<p>Typically one would use the <b class="cmd">tls::socket</b> command to create a new encrypted
+TCP socket. It is compatible with the native TCL <b class="syscmd">::socket</b> command.
+Alternatively for an existing TCP socket, the <b class="cmd">tls::import</b> command can be
+used to start TLS on the connection.</p>
+<dl class="doctools_definitions">
+<dt><a name="1"><b class="cmd">tls::init</b> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span></a></dt>
+<dd><p>Optional function to set the default options used by <b class="cmd">tls::socket</b>. If you
+call <b class="cmd">tls::import</b> directly, this command has no effect. This command
+supports all of the same options as the <b class="cmd">tls::socket</b> command, though you
+should limit your options to only TLS related ones.</p></dd>
+<dt><a name="2"><b class="cmd">tls::socket</b> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span> <i class="arg">host</i> <i class="arg">port</i></a></dt>
+<dd><p>This is a helper function that utilizes the underlying commands <b class="syscmd">socket</b>
+and <b class="cmd">tls::import</b> to create the connection. It behaves the same as the
+native TCL <b class="syscmd">socket</b> command, but also supports the <b class="cmd">tls:import</b>
+command options with one additional option. It returns the channel handle id
+for the new socket.</p>
+<dl class="doctools_options">
+<dt><b class="option">-autoservername</b> <i class="arg">bool</i></dt>
+<dd><p>If <b class="const">true</b>, automatically set the <b class="option">-servername</b> argument to the
+<em>host</em> argument. Default is <b class="const">false</b>.</p></dd>
+</dl></dd>
+<dt><a name="3"><b class="cmd">tls::socket</b> <b class="option">-server</b> <i class="arg">command</i> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span> <i class="arg">port</i></a></dt>
+<dd><p>Same as previous, but instead creates a server socket for clients to connect to
+just like the Tcl <b class="syscmd">socket -server</b> command. It returns the channel
+handle id for the new socket.</p></dd>
+<dt><a name="4"><b class="cmd">tls::import</b> <i class="arg">channel</i> <span class="opt">?<i class="arg">-option</i>?</span> <span class="opt">?<i class="arg">value</i>?</span> <span class="opt">?<i class="arg">-option value ...</i>?</span></a></dt>
+<dd><p>Start TLS encryption on TCL channel <i class="arg">channel</i> via a stacked channel. It
+need not be a socket, but must provide bi-directional flow. Also sets session
+parameters for SSL handshake. Valid options are:</p>
+<dl class="doctools_options">
+<dt><b class="option">-alpn</b> <i class="arg">list</i></dt>
+<dd><p>List of protocols to offer during Application-Layer Protocol Negotiation
+(ALPN). For example: <b class="const">h2</b> and <b class="const">http/1.1</b>, but not <b class="const">h3</b> or
+<b class="const">quic</b>.</p></dd>
+<dt><b class="option">-cadir</b> <i class="arg">directory</i></dt>
+<dd><p>Specifies the directory where the Certificate Authority (CA) certificates are
+stored. The default is platform specific and can be set at compile time. The
+default location can be overridden by the <b class="variable">SSL_CERT_DIR</b> environment
+variable. See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+<dt><b class="option">-cafile</b> <i class="arg">filename</i></dt>
+<dd><p>Specifies the file with the Certificate Authority (CA) certificates to use.
+The default is &quot;<b class="file">cert.pem</b>&quot;, in the OpenSSL directory. The default file can
+be overridden by the <b class="variable">SSL_CERT_FILE</b> environment variable. See
+<span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+<dt><b class="option">-castore</b> <i class="arg">URI</i></dt>
+<dd><p>Specifies the Uniform Resource Identifier (URI) for the Certificate Authority
 (CA) store, which may be a single container or a catalog of containers.
-Starting with OpenSSL 3.2 on Windows, set this to "org.openssl.winstore://" to
-use the built-in Windows Certificate Store. The Windows cert store only
-supports root certificate stores.</li>
-<li>The <b>-request</b> option is used to request the server send its
-certificate chain as part of the connection negotiation process. This is
-needed to do certificate validation. The default is true. In addition, the
+Starting with OpenSSL 3.2 on Windows, set to &quot;<b class="const">org.openssl.winstore://</b>&quot;
+to use the built-in Windows Certificate Store. This store only supports root
+certificate stores. See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+<dt><b class="option">-certfile</b> <i class="arg">filename</i></dt>
+<dd><p>Specifies the name of the file with the certificate in PEM format to use
+as the local (client or server) certificate. It also contains the public key.</p></dd>
+<dt><b class="option">-cert</b> <i class="arg">string</i></dt>
+<dd><p>Specifies the certificate to use as a DER encoded string (X.509 DER).</p></dd>
+<dt><b class="option">-cipher</b> <i class="arg">string</i></dt>
+<dd><p>Specifies the list of ciphers to use for TLS 1.2 and earlier connections.
+String is a colon &quot;<b class="const">:</b>&quot; separated list of ciphers.
+Ciphers can be combined using the &quot;<b class="const">+</b>&quot; character.
+Prefixes can be used to permanently remove &quot;<b class="const">!</b>&quot;, delete &quot;<b class="const">-</b>&quot;, or
+move to the end &quot;<b class="const">+</b>&quot; a specified cipher.
+Keywords <b class="const">@STRENGTH</b> (sort by algorithm key length),
+<b class="const">@SECLEVEL=</b><em>n</em> (set security level to n), and
+<b class="const">DEFAULT</b> (use default cipher list, at start only) can also be specified.
+See the <a href="https://docs.openssl.org/master/man1/openssl-ciphers/#options">OpenSSL</a>
+documentation for the full list of valid values.</p></dd>
+<dt><b class="option">-ciphersuites</b> <i class="arg">string</i></dt>
+<dd><p>Specifies the list of cipher suites to use for TLS 1.3 as a colon
+&quot;<b class="const">:</b>&quot; separated list of cipher suite names. See the
+<a href="https://docs.openssl.org/master/man1/openssl-ciphers/#options">OpenSSL</a>
+documentation for the full list of valid values.</p></dd>
+<dt><b class="option">-command</b> <i class="arg">callback</i></dt>
+<dd><p>Specifies the callback command to be invoked at several points during the
+handshake to pass errors, tracing information, and protocol messages.
+See <span class="sectref"><a href="#section4">Callback Options</a></span> for more info.</p></dd>
+<dt><b class="option">-dhparams</b> <i class="arg">filename</i></dt>
+<dd><p>Specifies the Diffie-Hellman (DH) parameters file.</p></dd>
+<dt><b class="option">-keyfile</b> <i class="arg">filename</i></dt>
+<dd><p>Specifies the private key file. The default value is to use the file
+specified by the <i class="arg">-certfile</i> option.</p></dd>
+<dt><b class="option">-key</b> <i class="arg">string</i></dt>
+<dd><p>Specifies the private key to use as a DER encoded string (PKCS#1 DER).</p></dd>
+<dt><b class="option">-model</b> <i class="arg">channel</i></dt>
+<dd><p>Force this channel to share the same <i class="term">SSL_CTX</i> structure as the
+specified <i class="arg">channel</i>, and therefore share config, callbacks, etc.</p></dd>
+<dt><b class="option">-password</b> <i class="arg">callback</i></dt>
+<dd><p>Specifies the callback command to invoke when OpenSSL needs to obtain a
+password. This is typically used to unlock the private key of a certificate.
+The callback should return a password string. See <span class="sectref"><a href="#section4">Callback Options</a></span>
+for more info.</p></dd>
+<dt><b class="option">-post_handshake</b> <i class="arg">bool</i></dt>
+<dd><p>Allow post-handshake session ticket updates.</p></dd>
+<dt><b class="option">-request</b> <i class="arg">bool</i></dt>
+<dd><p>Request a certificate from peer during the SSL handshake. This is needed to do
+Certificate Validation. Default is <b class="const">true</b>.
+See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+<dt><b class="option">-require</b> <i class="arg">bool</i></dt>
+<dd><p>Require a valid certificate from peer during the SSL handshake. If this is set to
+true, then <b class="option">-request</b> must also be set to true and a either <b class="option">-cadir</b>,
+<b class="option">-cafile</b>, <b class="option">-castore</b>, or a platform default must be provided in order to
+validate against. The default is <b class="const">false</b> since not all platforms have
+certificates to validate against in a form compatible with OpenSSL.
+See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+<dt><b class="option">-security_level</b> <i class="arg">integer</i></dt>
+<dd><p>Specifies the security level (value from 0 to 5). The security level affects
+the allowed cipher suite encryption algorithms, supported ECC curves,
+supported signature algorithms, DH parameter sizes, certificate key sizes
+and signature algorithms. The default is 1 prior to OpenSSL 3.2 and 2
+thereafter. Level 3 and higher disable support for session tickets and
+only accept cipher suites that provide forward secrecy.</p></dd>
+<dt><b class="option">-server</b> <i class="arg">bool</i></dt>
+<dd><p>Specifies whether to act as a server and respond with a server handshake when a
+client connects and provides a client handshake. The default is <b class="const">false</b>.</p></dd>
+<dt><b class="option">-servername</b> <i class="arg">hostname</i></dt>
+<dd><p>Specify the peer's hostname. This is used to set the TLS Server Name
+Indication (SNI) extension. Set this to the expected servername in the
+server's certificate or one of the Subject Alternate Names (SAN).</p></dd>
+<dt><b class="option">-session_id</b> <i class="arg">binary_string</i></dt>
+<dd><p>Specifies the session id to resume a session. Not supported yet.</p></dd>
+<dt><b class="option">-ssl2</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of SSL v2. The default is <b class="const">false</b>. Note: Recent versions of
+OpenSSL no longer support SSLv2, so this may not have any effect. See the
+<b class="cmd">tls::protocols</b> command for supported protocols.</p></dd>
+<dt><b class="option">-ssl3</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of SSL v3. The default is <b class="const">false</b>. Note: Recent versions
+of OpenSSL may have this disabled at compile time, so this may not have any
+effect. See the <b class="cmd">tls::protocols</b> command for supported protocols.</p></dd>
+<dt><b class="option">-tls1</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of TLS v1. The default is <b class="const">true</b>. Note: TLS 1.0 needs
+SHA1 to operate, which is only available in security level 0 for Open SSL 3.0+.
+See the <i class="arg">-security_level</i> option.</p></dd>
+<dt><b class="option">-tls1.1</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of TLS v1.1. The default is <b class="const">true</b>. Note: TLS 1.1 needs
+SHA1 to operate, which is only available in security level 0 for Open SSL 3.0+.
+See the <i class="arg">-security_level</i> option.</p></dd>
+<dt><b class="option">-tls1.2</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of TLS v1.2. The default is <b class="const">true</b>.</p></dd>
+<dt><b class="option">-tls1.3</b> <i class="arg">bool</i></dt>
+<dd><p>Enable use of TLS v1.3. The default is <b class="const">true</b>.</p></dd>
+<dt><b class="option">-validatecommand</b> <i class="arg">callback</i></dt>
+<dd><p>Specifies the callback command to invoke to validate the peer certificates
+and other config info during the protocol negotiation phase. This can be used
+by TCL scripts to perform their own Certificate Validation to supplement the
+default validation provided by OpenSSL. The script must return a boolean true
+to continue the negotiation. See <span class="sectref"><a href="#section4">Callback Options</a></span> for more info.</p></dd>
+</dl></dd>
+<dt><a name="5"><b class="cmd">tls::unimport</b> <i class="arg">channel</i></a></dt>
+<dd><p>Compliment to <b class="cmd">tls::import</b>. Used to remove the top level stacked channel
+from <i class="arg">channel</i>. This unstacks the encryption of a regular TCL channel. An
+error is thrown if TLS is not the top stacked channel type.</p></dd>
+<dt><a name="6"><b class="cmd">tls::handshake</b> <i class="arg">channel</i></a></dt>
+<dd><p>Forces the TLS negotiation handshake to take place immediately, and returns 0
+if handshake is still in progress (non-blocking), or 1 if the handshake was
+successful. If the handshake failed, an error will be returned.</p></dd>
+<dt><a name="7"><b class="cmd">tls::status</b> <span class="opt">?<b class="option">-local</b>?</span> <i class="arg">channel</i></a></dt>
+<dd><p>Returns the current status of an SSL channel. The result is a list of key-value
+pairs describing the SSL, certificate, and certificate verification status. If
+the SSL handshake has not yet completed, an empty list is returned. If the
+<b class="option">-local</b> option is specified, then the local certificate is used. Returned
+values include:</p>
+<p>SSL Status</p>
+<dl class="doctools_definitions">
+<dt><b class="variable">alpn</b> <i class="arg">protocol</i></dt>
+<dd><p>The protocol selected after Application-Layer Protocol Negotiation (ALPN).</p></dd>
+<dt><b class="variable">cipher</b> <i class="arg">cipher</i></dt>
+<dd><p>The current cipher in use for the session.</p></dd>
+<dt><b class="variable">peername</b> <i class="arg">name</i></dt>
+<dd><p>The peername from the certificate.</p></dd>
+<dt><b class="variable">protocol</b> <i class="arg">version</i></dt>
+<dd><p>The protocol version used for the connection: SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</p></dd>
+<dt><b class="variable">sbits</b> <i class="arg">n</i></dt>
+<dd><p>The number of bits used for the session key.</p></dd>
+<dt><b class="variable">signatureHashAlgorithm</b> <i class="arg">algorithm</i></dt>
+<dd><p>The signature hash algorithm.</p></dd>
+<dt><b class="variable">signatureType</b> <i class="arg">type</i></dt>
+<dd><p>The signature type value.</p></dd>
+<dt><b class="variable">verifyDepth</b> <i class="arg">n</i></dt>
+<dd><p>Maximum depth for the certificate chain verification. Default is -1, to check all.</p></dd>
+<dt><b class="variable">verifyMode</b> <i class="arg">list</i></dt>
+<dd><p>List of certificate verification modes.</p></dd>
+<dt><b class="variable">verifyResult</b> <i class="arg">result</i></dt>
+<dd><p>Certificate verification result.</p></dd>
+<dt><b class="variable">ca_names</b> <i class="arg">list</i></dt>
+<dd><p>List of the Certificate Authorities used to create the certificate.</p></dd>
+</dl>
+<p>Certificate Status</p>
+<dl class="doctools_definitions">
+<dt><b class="variable">all</b> <i class="arg">string</i></dt>
+<dd><p>Dump of all certificate info.</p></dd>
+<dt><b class="variable">version</b> <i class="arg">value</i></dt>
+<dd><p>The certificate version.</p></dd>
+<dt><b class="variable">serialNumber</b> <i class="arg">string</i></dt>
+<dd><p>The serial number of the certificate as a hex string.</p></dd>
+<dt><b class="variable">signature</b> <i class="arg">algorithm</i></dt>
+<dd><p>Cipher algorithm used for certificate signature.</p></dd>
+<dt><b class="variable">issuer</b> <i class="arg">string</i></dt>
+<dd><p>The distinguished name (DN) of the certificate issuer.</p></dd>
+<dt><b class="variable">notBefore</b> <i class="arg">date</i></dt>
+<dd><p>The beginning date of the certificate validity.</p></dd>
+<dt><b class="variable">notAfter</b> <i class="arg">date</i></dt>
+<dd><p>The expiration date of the certificate validity.</p></dd>
+<dt><b class="variable">subject</b> <i class="arg">string</i></dt>
+<dd><p>The distinguished name (DN) of the certificate subject. Fields include: Common
+Name (CN), Organization (O), Locality or City (L), State or Province (S), and
+Country Name (C).</p></dd>
+<dt><b class="variable">issuerUniqueID</b> <i class="arg">string</i></dt>
+<dd><p>The issuer unique id.</p></dd>
+<dt><b class="variable">subjectUniqueID</b> <i class="arg">string</i></dt>
+<dd><p>The subject unique id.</p></dd>
+<dt><b class="variable">num_extensions</b> <i class="arg">n</i></dt>
+<dd><p>Number of certificate extensions.</p></dd>
+<dt><b class="variable">extensions</b> <i class="arg">list</i></dt>
+<dd><p>List of certificate extension names.</p></dd>
+<dt><b class="variable">authorityKeyIdentifier</b> <i class="arg">string</i></dt>
+<dd><p>Authority Key Identifier (AKI) of the Issuing CA certificate that signed the
+SSL certificate as a hex string. This value matches the SKI value of the
+Intermediate CA certificate.</p></dd>
+<dt><b class="variable">subjectKeyIdentifier</b> <i class="arg">string</i></dt>
+<dd><p>Subject Key Identifier (SKI) hash of the public key inside the certificate as a
+hex string. Used to identify certificates that contain a particular public key.</p></dd>
+<dt><b class="variable">subjectAltName</b> <i class="arg">list</i></dt>
+<dd><p>List of all of the Subject Alternative Names (SAN) including domain names, sub
+domains, and IP addresses that are secured by the certificate.</p></dd>
+<dt><b class="variable">ocsp</b> <i class="arg">list</i></dt>
+<dd><p>List of all Online Certificate Status Protocol (OCSP) URLs that can be used to
+check the validity of this certificate.</p></dd>
+<dt><b class="variable">certificate</b> <i class="arg">cert</i></dt>
+<dd><p>The PEM encoded certificate.</p></dd>
+<dt><b class="variable">signatureAlgorithm</b> <i class="arg">algorithm</i></dt>
+<dd><p>Cipher algorithm used for the certificate signature.</p></dd>
+<dt><b class="variable">signatureValue</b> <i class="arg">string</i></dt>
+<dd><p>Certificate signature as a hex string.</p></dd>
+<dt><b class="variable">signatureDigest</b> <i class="arg">version</i></dt>
+<dd><p>Certificate signing digest as a hex string.</p></dd>
+<dt><b class="variable">publicKeyAlgorithm</b> <i class="arg">algorithm</i></dt>
+<dd><p>Certificate signature public key algorithm.</p></dd>
+<dt><b class="variable">publicKey</b> <i class="arg">string</i></dt>
+<dd><p>Certificate signature public key as a hex string.</p></dd>
+<dt><b class="variable">bits</b> <i class="arg">n</i></dt>
+<dd><p>Number of bits used for certificate signature key.</p></dd>
+<dt><b class="variable">self_signed</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether the certificate signature is self signed.</p></dd>
+<dt><b class="variable">sha1_hash</b> <i class="arg">hash</i></dt>
+<dd><p>The SHA1 hash of the certificate as a hex string.</p></dd>
+<dt><b class="variable">sha256_hash</b> <i class="arg">hash</i></dt>
+<dd><p>The SHA256 hash of the certificate as a hex string.</p></dd>
+</dl></dd>
+<dt><a name="8"><b class="cmd">tls::connection</b> <i class="arg">channel</i></a></dt>
+<dd><p>Returns the current connection status of an SSL channel. The result is a list
+of key-value pairs describing the connection. Returned values include:</p>
+<p>SSL Status</p>
+<dl class="doctools_definitions">
+<dt><b class="variable">state</b> <i class="arg">state</i></dt>
+<dd><p>State of the connection.</p></dd>
+<dt><b class="variable">servername</b> <i class="arg">name</i></dt>
+<dd><p>The name of the connected to server.</p></dd>
+<dt><b class="variable">protocol</b> <i class="arg">version</i></dt>
+<dd><p>The protocol version used for the connection: SSL2, SSL3, TLS1, TLS1.1, TLS1.2, TLS1.3, or unknown.</p></dd>
+<dt><b class="variable">renegotiation_allowed</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether protocol renegotiation is supported or not.</p></dd>
+<dt><b class="variable">security_level</b> <i class="arg">level</i></dt>
+<dd><p>The security level used for selection of ciphers, key size, etc.</p></dd>
+<dt><b class="variable">session_reused</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether the session has been reused or not.</p></dd>
+<dt><b class="variable">is_server</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether the connection is configured as a server (1) or client (0).</p></dd>
+<dt><b class="variable">compression</b> <i class="arg">mode</i></dt>
+<dd><p>Compression method.</p></dd>
+<dt><b class="variable">expansion</b> <i class="arg">mode</i></dt>
+<dd><p>Expansion method.</p></dd>
+<dt><b class="variable">caList</b> <i class="arg">list</i></dt>
+<dd><p>List of Certificate Authorities (CA) for X.509 certificate.</p></dd>
+</dl>
+<p>Cipher Info</p>
+<dl class="doctools_definitions">
+<dt><b class="variable">cipher</b> <i class="arg">cipher</i></dt>
+<dd><p>The current cipher in use for the connection.</p></dd>
+<dt><b class="variable">standard_name</b> <i class="arg">name</i></dt>
+<dd><p>The standard RFC name of cipher.</p></dd>
+<dt><b class="variable">algorithm_bits</b> <i class="arg">n</i></dt>
+<dd><p>The number of processed bits used for cipher.</p></dd>
+<dt><b class="variable">secret_bits</b> <i class="arg">n</i></dt>
+<dd><p>The number of secret bits used for cipher.</p></dd>
+<dt><b class="variable">min_version</b> <i class="arg">version</i></dt>
+<dd><p>The minimum protocol version for cipher.</p></dd>
+<dt><b class="variable">cipher_is_aead</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether the cipher is Authenticated Encryption with Associated Data (AEAD).</p></dd>
+<dt><b class="variable">cipher_id</b> <i class="arg">id</i></dt>
+<dd><p>The OpenSSL cipher id.</p></dd>
+<dt><b class="variable">description</b> <i class="arg">string</i></dt>
+<dd><p>A text description of the cipher.</p></dd>
+<dt><b class="variable">handshake_digest</b> <i class="arg">boolean</i></dt>
+<dd><p>Digest used during handshake.</p></dd>
+</dl>
+<p>Session Info</p>
+<dl class="doctools_definitions">
+<dt><b class="variable">alpn</b> <i class="arg">protocol</i></dt>
+<dd><p>The protocol selected after Application-Layer Protocol Negotiation (ALPN).</p></dd>
+<dt><b class="variable">resumable</b> <i class="arg">boolean</i></dt>
+<dd><p>Whether the session can be resumed or not.</p></dd>
+<dt><b class="variable">start_time</b> <i class="arg">seconds</i></dt>
+<dd><p>Time since session started in seconds since epoch.</p></dd>
+<dt><b class="variable">timeout</b> <i class="arg">seconds</i></dt>
+<dd><p>Max duration of session in seconds before time-out.</p></dd>
+<dt><b class="variable">lifetime</b> <i class="arg">seconds</i></dt>
+<dd><p>Session ticket lifetime hint in seconds.</p></dd>
+<dt><b class="variable">session_id</b> <i class="arg">binary_string</i></dt>
+<dd><p>Unique session id for use in resuming the session.</p></dd>
+<dt><b class="variable">session_ticket</b> <i class="arg">binary_string</i></dt>
+<dd><p>Unique session ticket for use in resuming the session.</p></dd>
+<dt><b class="variable">ticket_app_data</b> <i class="arg">binary_string</i></dt>
+<dd><p>Unique session ticket application data.</p></dd>
+<dt><b class="variable">master_key</b> <i class="arg">binary_string</i></dt>
+<dd><p>Unique session master key.</p></dd>
+<dt><b class="variable">session_cache_mode</b> <i class="arg">mode</i></dt>
+<dd><p>Server cache mode (client, server, or both).</p></dd>
+</dl></dd>
+<dt><a name="9"><b class="cmd">tls::ciphers</b> <span class="opt">?<i class="arg">protocol</i>?</span> <span class="opt">?<i class="arg">verbose</i>?</span> <span class="opt">?<i class="arg">supported</i>?</span></a></dt>
+<dd><p>Without any args, returns a list of all symmetric ciphers for use with the
+<i class="arg">-cipher</i> option. With <i class="arg">protocol</i>, only the ciphers supported for that
+protocol are returned. See the <b class="cmd">tls::protocols</b> command for the supported
+protocols. If <i class="arg">verbose</i> is specified as true then a verbose, human readable
+list is returned with additional information on the cipher. If <i class="arg">supported</i>
+is specified as true, then only the ciphers supported for protocol will be listed.</p></dd>
+<dt><a name="10"><b class="cmd">tls::protocols</b></a></dt>
+<dd><p>Returns a list of the supported SSL/TLS protocols. Valid values are:
+<b class="const">ssl2</b>, <b class="const">ssl3</b>, <b class="const">tls1</b>, <b class="const">tls1.1</b>, <b class="const">tls1.2</b>, and
+<b class="const">tls1.3</b>. Exact list depends on OpenSSL version and compile time flags.</p></dd>
+<dt><a name="11"><b class="cmd">tls::version</b></a></dt>
+<dd><p>Returns the OpenSSL version string.</p></dd>
+</dl>
+</div>
+<div id="section3" class="doctools_section"><h2><a name="section3">Certificate Validation</a></h2>
+<div id="subsection1" class="doctools_subsection"><h3><a name="subsection1">Summary of command line options</a></h3>
+<p>The following options are used for peer Certificate Validation:</p>
+<dl class="doctools_options">
+<dt><b class="option">-cadir</b> <i class="arg">directory</i></dt>
+<dd><p>Specifies the directory where the Certificate Authority (CA) certificates are
+stored. The default is platform specific, but is usually &quot;<b class="file">/etc/ssl/certs</b>&quot; on
+Linux/Unix systems. The default location can be overridden by the
+<b class="variable">SSL_CERT_DIR</b> environment variable.</p></dd>
+<dt><b class="option">-cafile</b> <i class="arg">filename</i></dt>
+<dd><p>Specifies the file with the Certificate Authority (CA) certificates to use in
+<b class="const">PEM</b> file format. The default is &quot;<b class="file">cert.pem</b>&quot;, in the OpenSSL directory. On
+Linux/Unix systems, this is usually &quot;<b class="file">/etc/ssl/ca-bundle.pem</b>&quot;. The default file
+can be overridden by the <b class="variable">SSL_CERT_FILE</b> environment variable.</p></dd>
+<dt><b class="option">-castore</b> <i class="arg">URI</i></dt>
+<dd><p>Specifies the Uniform Resource Identifier (URI) for the Certificate Authority
+(CA) store, which may be a single container or a catalog of containers.
+Starting with OpenSSL 3.2 on Windows, set to &quot;<b class="const">org.openssl.winstore://</b>&quot;
+to use the built-in Windows Certificate Store. This store only supports root
+certificate stores.</p></dd>
+<dt><b class="option">-request</b> <i class="arg">bool</i></dt>
+<dd><p>Request a certificate from peer during the SSL handshake. This is needed to do
+Certificate Validation. Default is <b class="const">true</b>. In addition, the
 client can manually inspect and accept or reject each certificate using the
-<b>-validatecommand</b> option.</li>
-<li>The <b>-require</b> option is used to require certificate validation be
-performed as part of the connection negotiation process. A valid CA directory,
-file, or store must be present for this to work.</li>
-</ul>
-
-<br>
-<h4>When are command line options needed:</h4>
-<p>
-By default, a client TLS connection does NOT validate the server certificate
+<i class="arg">-validatecommand</i> option.</p></dd>
+<dt><b class="option">-require</b> <i class="arg">bool</i></dt>
+<dd><p>Require a valid certificate from peer during the SSL handshake. If this is set
+to <b class="const">true</b>, then <i class="arg">-request</i> must also be set to <b class="const">true</b> and either
+<i class="arg">-cadir</i>, <i class="arg">-cafile</i>, <i class="arg">-castore</i>, or a platform default must be
+provided in order to validate against. The default is <b class="const">false</b> since not
+all platforms have certificates to validate against in a form compatible with
+OpenSSL. See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for more details.</p></dd>
+</dl>
+</div>
+<div id="subsection2" class="doctools_subsection"><h3><a name="subsection2">When are command line options needed?</a></h3>
+<p>By default, a client TLS connection does <em>NOT</em> validate the server certificate
 chain. This limitation is due to the lack of a common cross platform
 database of Certificate Authority (CA) provided certificates to validate
 against. Many Linux systems natively support OpenSSL and thus have these
 certificates installed as part of the OS, but MacOS and Windows do not. In
-order to use the <b>-require</b> option, one of the following must be true:</p>
-<ul>
-<li>On Linux and Unix systems with OpenSSL already installed, if the CA
-certificates are stored in the standard locations, or the <b>SSL_CERT_DIR</b>
-or <b>SSL_CERT_FILE</b> env vars are set, then no other options are needed.</li>
-
-<li>If OpenSSL is not installed in the default location, or when using Mac OS
-or Windows and OpenSSL is installed, the <b>SSL_CERT_DIR</b> and/or 
-<b>SSL_CERT_FILE</b> env vars or the <b>-cadir</b> and/or <b>-cafile</b>
- options must be defined.</li>
-
-<li>On Windows, starting in OpenSSL 3.2, it is now possible to access the
+order to use the <b class="option">-require</b> option, one of the following must be true:</p>
+<ul class="doctools_itemized">
+<li><p>On Linux and Unix systems with OpenSSL already installed, if the CA
+certificates are stored in the standard locations, or if the <b class="variable">SSL_CERT_DIR</b>
+or <b class="variable">SSL_CERT_FILE</b> environment variables are set, then <b class="option">-cadir</b>,
+<b class="option">-cadir</b>, and <b class="option">-castore</b> aren't needed.</p></li>
+<li><p>If OpenSSL is not installed in the default location, or when using Mac OS
+or Windows and OpenSSL is installed, the <b class="variable">SSL_CERT_DIR</b> and/or 
+<b class="variable">SSL_CERT_FILE</b> environment variables or the one of the <b class="option">-cadir</b>,
+<b class="option">-cadir</b>, or <b class="option">-castore</b> options must be defined.</p></li>
+<li><p>On Windows, starting in OpenSSL 3.2, it is now possible to access the
 built-in Windows Certificate Store from OpenSSL. This can be achieved by
-setting the <b>-castore</b> option to "<b>org.openssl.winstore://</b>".</li>
-
-<li>If OpenSSL is not installed, the CA certificates must be downloaded and
+setting the <b class="option">-castore</b> option to &quot;<b class="const">org.openssl.winstore://</b>&quot;.</p></li>
+<li><p>If OpenSSL is not installed, the CA certificates must be downloaded and
 installed with the user software. The CURL team makes them available at
 <a href="https://curl.se/docs/caextract.html">CA certificates extracted
-from Mozilla</a> in the <b>cacert.pem</b> file. You must then either
-set the <b>SSL_CERT_DIR</b> and/or <b>SSL_CERT_FILE</b> env vars or the
-<b>-cadir</b> or <b>-cafile</b> options to the CA cert file's install
-location. It is your responsibility to keep this file up to date.</li>
+from Mozilla</a> in the &quot;<b class="file">cacert.pem</b>&quot; file. You must then either set the
+<b class="variable">SSL_CERT_DIR</b> and/or <b class="variable">SSL_CERT_FILE</b> environment variables or the
+<b class="option">-cadir</b> or <b class="option">-cafile</b> options to the CA cert file's install
+location. It is your responsibility to keep this file up to date.</p></li>
 </ul>
-<br>
-
-<hr>
-
-<h3><a name="CALLBACK OPTIONS">CALLBACK OPTIONS</a></h3>
-
-<p>
-As indicated above, individual channels can be given their own callbacks
+</div>
+</div>
+<div id="section4" class="doctools_section"><h2><a name="section4">Callback Options</a></h2>
+<p>As previously described, each channel can be given their own callbacks
 to handle intermediate processing by the OpenSSL library, using the
-<strong>-command</strong>, <strong>-password</strong>, and
-<strong>-validate_command</strong> options passed to either of
-<strong>tls::socket</strong> or <strong>tls::import</strong>.
-Unlike previous versions of TCL TLS, only if the callback generates an error,
-will the <b>bgerror</b> command will be invoked with the error information.
-</p>
-
-<dl>
-    <dt><strong>-command</strong> <em>callback</em></dt>
-    <dd>
-	Invokes the specified <em>callback</em> script at several points
-	during the OpenSSL handshake and use. See below for the possible
-	arguments passed to the callback script. Values returned from the
-	callback are ignored.
-    <br>
-    <dl>
-	<dt>
-	<strong>error</strong> <em>channelId message</em>
-	</dt>
-	<dd>
-	    This form of callback is invoked whenever an error occurs during the
-	    initial connection, handshake, or I/O operations. The <em>message</em>
-	    argument can be from the Tcl_ErrnoMsg, OpenSSL function
-	    <code>ERR_reason_error_string()</code>, or a custom message.
-	</dd>
-	<br>
-	<dt>
-	    <strong>info</strong> <em>channelId major minor message type</em>
-	</dt>
-	<dd>
-	     This form of callback is invoked by the OpenSSL function
-	    <code>SSL_set_info_callback()</code> during the initial connection
-	    and handshake operations. The <em>type</em> argument is new for
-	    TLS 1.8. The arguments are:
-	<br>
-	<ul>
-	<li>Possible values for <em>major</em> are:
-	    <code>handshake, alert, connect, accept</code>.</li>
-	<li>Possible values for <em>minor</em> are:
-	    <code>start, done, read, write, loop, exit</code>.</li>
-	<li>The <em>message</em> argument is a descriptive string which may
-	    be generated either by <code>SSL_state_string_long()</code> or by
-	    <code>SSL_alert_desc_string_long()</code>, depending on the context.</li>
-	<li>For alerts, the possible values for <em>type</em> are:
-	    <code>warning, fatal, and unknown</code>. For others,
-	    <code>info</code> is used.</li>
-	</ul>
-	</dd>
-	<dt>
-	<strong>message</strong> <em>channelId direction version content_type message</em>
-	</dt>
-	<dd>
-	    This form of callback is invoked by the OpenSSL function
-	    <code>SSL_set_msg_callback()</code> whenever a message is sent or
-	    received during the initial connection, handshake, or I/O operations.
-	    It is only available when OpenSSL is complied with the
-	    <em>enable-ssl-trace</em> option. Arguments are: <em>direction</em>
-	    is <b>Sent</b> or <b>Received</b>, <em>version</em> is the protocol
-	    version, <em>content_type</em> is the message content type, and
-	    <em>message</em> is more info from the <code>SSL_trace</code> API.
-	    This callback is new for TLS 1.8.
-	</dd>
-	<br>
-	<dt>
-	<strong>session</strong> <em>channelId session_id ticket lifetime</em>
-	</dt>
-	<dd>
-	    This form of callback is invoked by the OpenSSL function
-	    <code>SSL_CTX_sess_set_new_cb()</code> whenever a new session id is
-	    sent by the server during the initial connection and handshake, but
-	    can also be received later if the <b>-post_handshake</b> option is
-	    used. Arguments are: <em>session_id</em> is the current
-	    session identifier, <em>ticket</em> is the session ticket info, and
-	    <em>lifetime</em> is the the ticket lifetime in seconds.
-	    This callback is new for TLS 1.8.
-	</dd>
-    </dl>
-    </dd>
+<b class="option">-command</b>, <b class="option">-password</b>, and <b class="option">-validate_command</b> options
+passed to either of <b class="cmd">tls::socket</b> or <b class="cmd">tls::import</b>.
+Unlike previous versions of TclTLS, only if the callback generates an error,
+will the <b class="syscmd">bgerror</b> command be invoked with the error information.</p>
+<div id="subsection3" class="doctools_subsection"><h3><a name="subsection3">Values for Command Callback</a></h3>
+<p>The callback for the <b class="option">-command</b> option is invoked at several points during the
+OpenSSL handshake and during routine operations. See below for the possible
+arguments passed to the callback script. Values returned from the callback are
+ignored.</p>
+<dl class="doctools_options">
+<dt><b class="option">error</b> <i class="arg">channelId message</i></dt>
+<dd><p>This form of callback is invoked whenever an error occurs during the initial
+connection, handshake, or I/O operations. The <i class="arg">message</i> argument can be
+from the Tcl_ErrnoMsg, OpenSSL function <b class="function">ERR_reason_error_string()</b>,
+or a custom message. This callback is new for TclTLS 1.8.</p></dd>
+<dt><b class="option">info</b> <i class="arg">channelId major minor message type</i></dt>
+<dd><p>This form of callback is invoked by the OpenSSL function
+<b class="function">SSL_set_info_callback()</b> during the initial connection and handshake
+operations. The arguments are:</p>
+<dl class="doctools_definitions">
+<dt><i class="arg">major</i></dt>
+<dd><p>Major category for error. Valid enums are: <b class="const">handshake</b>, <b class="const">alert</b>,
+<b class="const">connect</b>, <b class="const">accept</b>.</p></dd>
+<dt><i class="arg">minor</i></dt>
+<dd><p>Minor category for error. Valid enums are: <b class="const">start</b>, <b class="const">done</b>, <b class="const">read</b>,
+<b class="const">write</b>, <b class="const">loop</b>, <b class="const">exit</b>.</p></dd>
+<dt><i class="arg">message</i></dt>
+<dd><p>Descriptive message string which may be generated either by
+<b class="function">SSL_state_string_long()</b> or <b class="function">SSL_alert_desc_string_long()</b>,
+depending on the context.</p></dd>
+<dt><i class="arg">type</i></dt>
+<dd><p>For alerts, the possible values are: <b class="const">warning</b>,
+<b class="const">fatal</b>, and <b class="const">unknown</b>. For others, <b class="const">info</b> is used.
+This argument is new for TclTLS 1.8.</p></dd>
+</dl></dd>
+<dt><b class="option">message</b> <i class="arg">channelId direction version content_type message</i></dt>
+<dd><p>This form of callback is invoked by the OpenSSL function
+<b class="function">SSL_set_msg_callback()</b> whenever a message is sent or received during the
+initial connection, handshake, or I/O operations. It is only available when
+OpenSSL is complied with the <b class="const">enable-ssl-trace</b> option. This callback is
+new for TclTLS 1.8. The arguments are:</p>
+<dl class="doctools_definitions">
+<dt><i class="arg">direction</i></dt>
+<dd><p>Direction is either <b class="const">Sent</b> or <b class="const">Received</b>.</p></dd>
+<dt><i class="arg">version</i></dt>
+<dd><p>Version is the protocol version.</p></dd>
+<dt><i class="arg">content_type</i></dt>
+<dd><p>Content type is the message content type.</p></dd>
+<dt><i class="arg">message</i></dt>
+<dd><p>Message is more info from the <b class="const">SSL_trace</b> API.
+This argument is new for TclTLS 1.8.</p></dd>
+</dl></dd>
+<dt><b class="option">session</b> <i class="arg">channelId session_id session_ticket lifetime</i></dt>
+<dd><p>This form of callback is invoked by the OpenSSL function
+<b class="function">SSL_CTX_sess_set_new_cb()</b> whenever a new session id is sent by the
+server during the initial connection and handshake and also during the session
+if the <b class="option">-post_handshake</b> option is set to true. This callback is new for
+TclTLS 1.8. The arguments are:</p>
+<dl class="doctools_definitions">
+<dt><i class="arg">session_id</i></dt>
+<dd><p>Session Id is the current session identifier</p></dd>
+<dt><i class="arg">session_ticket</i></dt>
+<dd><p>Ticket is the session ticket info</p></dd>
+<dt><i class="arg">lifetime</i></dt>
+<dd><p>Lifetime is the ticket lifetime in seconds.</p></dd>
+</dl></dd>
+<dt><b class="option">verify</b> <i class="arg">channelId depth cert status error</i></dt>
+<dd><p>This callback was moved to the <b class="option">-verify_callback</b> in TclTLS 1.8.</p></dd>
 </dl>
-<br>
-<dl>
-    <dt><strong>-password</strong> <em>callback</em></dt>
-    <dd>
-	Invokes the specified <em>callback</em> script when OpenSSL needs to
-	obtain a password. See below for the possible arguments passed to
-	the callback script. See below for valid return values.
-	<br>
-	<dl>
-	    <dt>
-	    <strong>password</strong> <em>rwflag size</em>
-	    </dt>
-	    <dd>
-		Invoked when loading or storing a PEM certificate with encryption.
-		Where <em>rwflag</em> is 0 for reading/decryption or 1 for
-		writing/encryption (can prompt user to confirm) and <em>size</em> is
-		the max password length in bytes. The callback should return the
-		password as a string. Both arguments are new for TLS 1.8.
-	    </dd>
-	</dl>
-    </dd>
+</div>
+<div id="subsection4" class="doctools_subsection"><h3><a name="subsection4">Values for Password Callback</a></h3>
+<p>The callback for the <b class="option">-password</b> option is invoked by TclTLS whenever OpenSSL needs
+to obtain a password. See below for the possible arguments passed to the
+callback script. The user provided password is expected to be returned by the
+callback.</p>
+<dl class="doctools_options">
+<dt><b class="option">password</b> <i class="arg">rwflag size</i></dt>
+<dd><p>Invoked when loading or storing an encrypted PEM certificate. The arguments are:</p>
+<dl class="doctools_definitions">
+<dt><i class="arg">rwflag</i></dt>
+<dd><p>The read/write flag is 0 for reading/decryption or 1 for writing/encryption.
+The latter can be used to determine when to prompt the user to confirm.
+This argument is new for TclTLS 1.8.</p></dd>
+<dt><i class="arg">size</i></dt>
+<dd><p>The size is the maximum length of the password in bytes.
+This argument is new for TclTLS 1.8.</p></dd>
+</dl></dd>
 </dl>
-<br>
-<dl>
-    <dt><strong>-validatecommand</strong> <em>callback</em></dt>
-    <dd>
-	Invokes the specified <em>callback</em> script during handshake in
-	order to validate the provided value(s). See below for the possible
-	arguments passed to the callback script. If not specified, OpenSSL
-	will accept valid certificates and extensions.
-	To reject the value and abort the connection, the callback should return 0.
-	To accept the value and continue the connection, it should return 1.
-	To reject the value, but continue the connection, it should return 2.
-	<br>
-	<dl>
-	    <dt>
-		<strong>alpn</strong> <em>channelId protocol match</em>
-		</dt>
-	    <dd>
-		For servers, this form of callback is invoked when the client ALPN
-		extension is received. If <em>match</em> is true, <em>protocol</em>
-		is the first <b>-alpn</b> option specified protocol common to both
-		the client and server. If not, the first client specified protocol is
-		used. It is called after the hello and ALPN callbacks.
-		This callback is new for TLS 1.8.
-	    </dd>
-	    <br>
-	    <dt>
-		<strong>hello</strong> <em>channelId servername</em>
-	    </dt>
-	    <dd>
-		For servers, this form of callback is invoked during client hello
-		message processing. The purpose is so the server can select the
-		appropriate certificate to present to the client, and to make other
-		configuration adjustments relevant to that server name and its
-		configuration. It is called before the SNI and ALPN callbacks.
-		This callback is new for TLS 1.8.
-	    </dd>
-	    <br>
-	    <dt>
-		<strong>sni</strong> <em>channelId servername</em>
-	    </dt>
-	    <dd>
-		For servers, this form of callback is invoked when the Server Name
-		Indication (SNI) extension is received. The <em>servername</em>
-		argument is the client provided server name in the <b>-servername</b>
-		option. The purpose is so when a server supports multiple names, the
-		right certificate can be used. It is called after the hello callback
-		but before the ALPN callback.
-		This callback is new for TLS 1.8.
-	    </dd>
-	    <br>
-	    <dt>
-		<strong>verify</strong> <em>channelId depth cert status error</em>
-	    </dt>
-	    <dd>
-		This form of callback is invoked by OpenSSL when a new certificate
-		is received from the peer. It allows the client to check the
-		certificate verification results and choose whether to continue
-		or not. It is called for each certificate in the certificate chain.
-		<ul>
-		<li>The <em>depth</em> argument is the integer depth of the
-		certificate in the certificate chain, where 0 is the peer certificate
-		and higher values going up to the Certificate Authority (CA).</li>
-		<li>The <em>cert</em> argument is a list of key-value pairs similar
-		to those returned by
-		<a href="#tls::status"><strong>tls::status</strong></a>.</li>
-		<li>The <em>status</em> argument is the boolean validity of the
-		current certificate where 0 is invalid and 1 is valid.</li>
-		<li>The <em>error</em> argument is the error message, if any, generated
-		by <code>X509_STORE_CTX_get_error()</code>.</li>
-		</ul>
-	    </dd>
-	    <br>
-	</dl>
-    </dd>
+</div>
+<div id="subsection5" class="doctools_subsection"><h3><a name="subsection5">Values for Validate Command Callback</a></h3>
+<p>The callback for the <b class="option">-validatecommand</b> option is invoked during the handshake
+process in order for the application to validate the provided value(s). See
+below for the possible arguments passed to the callback script. If not
+specified, OpenSSL will accept all valid certificates and extensions. To reject
+the value and abort the connection, the callback should return 0. To accept the
+value and continue the connection, it should return 1. To reject the value, but
+continue the connection, it should return 2. This callback is new for TclTLS 1.8.</p>
+<dl class="doctools_options">
+<dt><b class="option">alpn</b> <i class="arg">channelId protocol match</i></dt>
+<dd><p>For servers, this form of callback is invoked when the client ALPN extension is
+received. If <i class="arg">match</i> is true, then <i class="arg">protocol</i> is the first
+<b class="option">-alpn</b> protocol option in common to both the client and server.
+If not, the first client specified protocol is used. This callback is called
+after the Hello and ALPN callbacks.</p></dd>
+<dt><b class="option">hello</b> <i class="arg">channelId servername</i></dt>
+<dd><p>For servers, this form of callback is invoked during client hello message
+processing. The purpose is so the server can select the appropriate certificate
+to present to the client, and to make other configuration adjustments relevant
+to that server name and its configuration. It is called before the SNI and ALPN
+callbacks.</p></dd>
+<dt><b class="option">sni</b> <i class="arg">channelId servername</i></dt>
+<dd><p>For servers, this form of callback is invoked when the Server Name Indication
+(SNI) extension is received. The <i class="arg">servername</i> argument is the client
+provided server name specified in the <b class="option">-servername&lt;/b&gt;</b> option. The
+purpose is so when a server supports multiple names, the right certificate
+can be used. It is called after the hello callback but before the ALPN
+callback.</p></dd>
+<dt><b class="option">verify</b> <i class="arg">channelId depth cert status error</i></dt>
+<dd><p>This form of callback is invoked by OpenSSL when a new certificate is received
+from the peer. It allows the client to check the certificate verification
+results and choose whether to continue or not. It is called for each
+certificate in the certificate chain. This callback was moved from
+<b class="option">-command</b> in TclTLS 1.8. The arguments are:</p>
+<dl class="doctools_definitions">
+<dt><i class="arg">depth</i></dt>
+<dd><p>The depth is the integer depth of the certificate in the certificate chain,
+where 0 is the peer certificate and higher values going up to the Certificate
+Authority (CA).</p></dd>
+<dt><i class="arg">cert</i></dt>
+<dd><p>The cert argument is a list of key-value pairs similar to those returned by
+<b class="cmd">tls::status</b>.</p></dd>
+<dt><i class="arg">status</i></dt>
+<dd><p>The status argument is the boolean validity of the current certificate where 0
+is invalid and 1 is valid.</p></dd>
+<dt><i class="arg">error</i></dt>
+<dd><p>The error argument is the error message, if any, generated by
+<b class="function">X509_STORE_CTX_get_error()</b>.</p></dd>
+</dl></dd>
 </dl>
-
-<p>
-Reference implementations of these callbacks are provided in the
-distribution as <strong>tls::callback</strong>, <strong>tls::password</strong>,
-and <strong>tls::validate_command</strong> respectively. Note that these are
-<em>sample</em> implementations only. In a more realistic deployment
-you would specify your own callback scripts on each TLS channel using the
-<strong>-command</strong>, <strong>-password</strong>, and
-<strong>-validate_command</strong> options.
-</p>
-<p>
-The default behavior when the <strong>-command</strong> and <strong>-validate_command</strong>
-options are not specified is for TLS to process the associated library callbacks
-internally. The default behavior when the <strong>-password</strong> option is not
-specified is for TLS to process the associated library callbacks by attempting
-to call <strong>tls::password</strong>.
-The difference between these two behaviors is a consequence of maintaining
-compatibility with earlier implementations.
-</p>
-<p>
-<em>
-The use of the reference callbacks <strong>tls::callback</strong>,
-<strong>tls::password</strong>, and <strong>tls::validate_command</strong>
-is not recommended. They may be removed from future releases.
-</em>
-</p>
-<br>
-
-<hr>
-
-<h3><a name="DEBUG">DEBUG</a></h3>
-
-<p>For most debugging needs, the <b>-callback</b> option can be used to provide
-sufficient insight and information on the TLS handshake and progress. If further
-troubleshooting insight is needed, the compile time option <b>--enable-debug</b>
-can be used to get detailed execution flow status.</p>
-
+<p>Reference implementations of these callbacks are provided in &quot;<b class="file">tls.tcl</b>&quot;
+as <b class="cmd">tls::callback</b>, <b class="cmd">tls::password</b>, and <b class="cmd">tls::validate_command</b>
+respectively. Note that these are only <em>sample</em> implementations. In a more
+realistic deployment you would specify your own callback scripts on each TLS
+channel using the <b class="option">-command</b>, <b class="option">-password</b>, and
+<b class="option">-validate_command</b> options.</p>
+<p>The default behavior when the <b class="option">-command</b> and <b class="option">-validate_command</b>
+options are not specified, is for TclTLS to process the associated library
+callbacks internally. The default behavior when the <b class="option">-password</b> option
+is not specified is for TclTLS to process the associated library callbacks by
+attempting to call <b class="cmd">tls::password</b>. The difference between these two
+behaviors is a consequence of maintaining compatibility with earlier
+implementations.</p>
+<p><em>The use of the reference callbacks <b class="cmd">tls::callback</b>, <b class="cmd">tls::password</b>,
+and <b class="cmd">tls::validate_command</b> is not recommended. They may be removed from future releases.</em></p>
+</div>
+</div>
+<div id="section5" class="doctools_section"><h2><a name="section5">Debug</a></h2>
+<p>For most debugging needs, the <b class="option">-callback</b> option can be used to provide
+sufficient insight and information on the TLS handshake and progress. If
+further troubleshooting insight is needed, the compile time option
+<b class="option">--enable-debug</b> can be used to get detailed execution flow status.</p>
 <p>TLS key logging can be enabled by setting the environment variable
-<b>SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS
-key material is generated or received it will be logged to the file. This
-is useful for logging key data for network logging tools to use to
-decrypt the data.</p>
-
-<p>The <strong>tls::debug</strong> variable provides some additional
-control over these reference callbacks. Its value is zero by default.
-Higher values produce more diagnostic output, and will also force the
-verify method in <strong>tls::callback</strong> to accept the
-certificate, even when it is invalid if the <b>tls::validate_command</b>
-callback is used for the <b>-validatecommand</b> option.</p>
-
-<p><em>The use of the variable <strong>tls::debug</strong> is not recommended.
+<b class="variable">SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS key
+material is generated or received it will be logged to the file. This is useful
+for logging key data for network logging tools to use to decrypt the data.</p>
+<p>The <b class="variable">tls::debug</b> variable provides some additional control over these
+reference callbacks. Its value is zero by default. Higher values produce more
+diagnostic output, and will also force the verify method in <b class="cmd">tls::callback</b>
+to accept the certificate, even when it is invalid if the
+<b class="option">-validatecommand</b> option is set to <b class="cmd">tls::validate_command</b>.</p>
+<p><em>The use of the variable <b class="variable">tls::debug</b> is not recommended.
 It may be removed from future releases.</em></p>
-
-<h4><a name="DEBUG_EXAMPLES">Debug Examples</a></h4>
-
+</div>
+<div id="section6" class="doctools_section"><h2><a name="section6">Debug Examples</a></h2>
 <p>These examples use the default Unix platform SSL certificates. For standard
 installations, -cadir and -cafile should not be needed. If your certificates
 are in non-standard locations, update -cadir or use -cafile as needed.</p>
-<br>
-
 <p>Example #1: Use HTTP package</p>
-<pre><code>
+<pre class="doctools_example">
 package require http
 package require tls
-set url "https://www.tcl.tk/"
-
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs \
-    -command ::tls::callback -password ::tls::password -validatecommand ::tls::validate_command]
-
+set url &quot;https://www.tcl.tk/&quot;
+http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs  -command ::tls::callback -password ::tls::password -validatecommand ::tls::validate_command]
 # Check for error
 set token [http::geturl $url]
-if {[http::status $token] ne "ok"} {
-    puts [format "Error %s" [http::status $token]]
+if {[http::status $token] ne &quot;ok&quot;} {
+    puts [format &quot;Error %s&quot; [http::status $token]]
 }
-
 # Get web page
 set data [http::data $token]
 puts [string length $data]
-
 # Cleanup
 ::http::cleanup $token
-</code></pre>
-
+</pre>
 <p>Example #2: Use raw socket</p>
-<pre><code>
+<pre class="doctools_example">
 package require tls
-
-set url "www.tcl-lang.org"
+set url &quot;www.tcl-lang.org&quot;
 set port 443
-
-set ch [tls::socket -autoservername 1 -servername $url -request 1 -require 1 \
-    -alpn {http/1.1} -cadir /etc/ssl/certs -command ::tls::callback \
-    -password ::tls::password -validatecommand ::tls::validate_command $url $port]
+set ch [tls::socket -autoservername 1 -servername $url -request 1 -require 1  -alpn {http/1.1} -cadir /etc/ssl/certs -command ::tls::callback  -password ::tls::password -validatecommand ::tls::validate_command $url $port]
 chan configure $ch -buffersize 65536
 tls::handshake $ch
-
-puts $ch "GET / HTTP/1.1"
+puts $ch &quot;GET / HTTP/1.1&quot;
 flush $ch
 after 500
 set data [read $ch]
-
 array set status [tls::status $ch]
 array set conn [tls::connection $ch]
 array set chan [chan configure $ch]
@@ -807,91 +775,63 @@ close $ch
 parray status
 parray conn
 parray chan
-</code></pre>
-<br>
-
-<hr>
-
-<h3><a name="HTTPS EXAMPLE">HTTPS EXAMPLE</a></h3>
-
+</pre>
+</div>
+<div id="section7" class="doctools_section"><h2><a name="section7">HTTP Package Examples</a></h2>
 <p>These examples use the default Unix platform SSL certificates. For standard
 installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, update -cadir or use -cafile as needed.</p>
-
-<p>Example #1: Get web page</p>
-<pre><code>
+are in non-standard locations, set -cadir or use -cafile as needed.</p>
+<p>Example #3: Get web page</p>
+<pre class="doctools_example">
 package require http
 package require tls
-set url "https://www.tcl.tk/"
-
+set url &quot;https://www.tcl.tk/&quot;
 http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
-
 # Check for error
 set token [http::geturl $url]
-if {[http::status $token] ne "ok"} {
-    puts [format "Error %s" [http::status $token]]
+if {[http::status $token] ne &quot;ok&quot;} {
+    puts [format &quot;Error %s&quot; [http::status $token]]
 }
-
 # Get web page
 set data [http::data $token]
 puts $data
-
 # Cleanup
 ::http::cleanup $token
-</code></pre>
-
-<p>Example #2: Download file</p>
-<pre><code>
+</pre>
+<p>Example #4: Download file</p>
+<pre class="doctools_example">
 package require http
 package require tls
-
-set url "https://wiki.tcl-lang.org/sitemap.xml"
+set url &quot;https://wiki.tcl-lang.org/sitemap.xml&quot;
 set filename [file tail $url]
-
 http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
-
 # Get file
 set ch [open $filename wb]
 set token [::http::geturl $url -blocksize 65536 -channel $ch]
-
 # Cleanup
 close $ch
 ::http::cleanup $token
-</code></pre>
-<br>
-
-<hr>
-
-<h3><a name="SPECIAL CONSIDERATIONS">SPECIAL CONSIDERATIONS</a></h3>
-
+</pre>
+</div>
+<div id="section8" class="doctools_section"><h2><a name="section8">Special Considerations</a></h2>
 <p>The capabilities of this package can vary enormously based upon how the
 linked to OpenSSL library was configured and built. New versions may obsolete
 older protocol versions, add or remove ciphers, change default values, etc.
-Use the <strong>tls::protocols</strong> commands to obtain the supported
+Use the <b class="cmd">tls::protocols</b> commands to obtain the supported
 protocol versions.</p>
-
-<hr>
-
-<h3><a name="See Also">See Also</a></h3>
-
-<p><strong>socket</strong>, <strong>fileevent</strong>, <strong>http</strong>,
-<a href="https://www.openssl.org/"><strong>OpenSSL</strong></a></p>
-
-<hr>
-
-<h3><a name="KEYWORDS">KEYWORDS</a></h3>
-
-<p><strong>tls</strong>, <strong>I/O</strong>, <strong>IP Address</strong>, <strong>OpenSSL</strong>
-<strong>SSL</strong>, <strong>TCP</strong>, <strong>TLS</strong>, <strong>asynchronous I/O</strong>,
-<strong>bind</strong>, <strong>certificate</strong>, <strong>channel</strong>, <strong>connection</strong>, 
-<strong>domain name</strong>, <strong>host</strong>,<strong>https</strong>, <strong>network address</strong>,
-<strong>network</strong>, <strong>socket</strong>, <strong>TclTLS</strong>
-<hr>
-
-<pre>
-Copyright &copy; 1999 Matt Newman
-Copyright &copy; 2004 Starfish Systems
-Copyright &copy; 2023-2024 Brian O'Hagan
-</pre>
-</body>
-</html>
+</div>
+<div id="see-also" class="doctools_section"><h2><a name="see-also">See Also</a></h2>
+<p><a href="https://www.openssl.org/">OpenSSL</a>, http, socket</p>
+</div>
+<div id="keywords" class="doctools_section"><h2><a name="keywords">Keywords</a></h2>
+<p>I/O, IP Address, OpenSSL, SSL, TCP, TLS, TclTLS, asynchronous I/O, bind, certificate, channel, connection, domain name, host, https, network, network address, socket, tls</p>
+</div>
+<div id="category" class="doctools_section"><h2><a name="category">Category</a></h2>
+<p>tls</p>
+</div>
+<div id="copyright" class="doctools_section"><h2><a name="copyright">Copyright</a></h2>
+<p>Copyright &copy; 1999 Matt Newman<br>
+Copyright &copy; 2004 Starfish Systems<br>
+Copyright &copy; 2024 Brian O'Hagan</p>
+</div>
+</div></body></html>
