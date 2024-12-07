@@ -120,12 +120,7 @@ $(TMP_DIR)\manifest.uuid:
 !else
 !if exist($(ROOT)\.git)
 	@copy "$(WIN_DIR)\gitmanifest.in" "$(TMP_DIR)\manifest.uuid"
-	@for /f "delims=" %i in ('where git') do (set GIT_PATH=%i)
-	@if [%GIT_PATH%] NEQ [] (
-		@git rev-parse HEAD >>$(TMP_DIR)\manifest.uuid
-	) else (
-		@echo unknown >>$(TMP_DIR)\manifest.uuid
-	)
+	@git rev-parse HEAD >>$(TMP_DIR)\manifest.uuid || echo unknown >>$(TMP_DIR)\manifest.uuid
 !else
 	@echo unknown >$(TMP_DIR)\manifest.uuid
 !endif
@@ -141,10 +136,10 @@ $(TMP_DIR)\tlsUuid.h:	$(TMP_DIR)\manifest.uuid
 # install (from targets.vc) will remain.
 install: pkgindex default-install default-install-docs-html
 !if exist($(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll)
-	xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+	@xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
 !endif
 !if exist($(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll)
-	xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" "$(PRJ_INSTALL_DIR)"
+	@xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libssl-*-x64.dll" "$(PRJ_INSTALL_DIR)"
 !endif
 
 # Test package
