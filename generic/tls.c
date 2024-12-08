@@ -542,23 +542,13 @@ PasswordCallback(
 
     /* If no callback, use default callback */
     if (statePtr->password == NULL) {
-	if (Tcl_EvalEx(interp, "tls::password", -1, TCL_EVAL_GLOBAL) == TCL_OK) {
-	    char *ret = (char *) Tcl_GetStringFromObj(Tcl_GetObjResult(interp), &len);
-	    if (len > (Tcl_Size) size-1) {
-		len = (Tcl_Size) size-1;
-	    }
-	    strncpy(buf, ret, (size_t) len);
-	    buf[len] = '\0';
-	    return (int) len;
-	} else {
-	    return -1;
-	}
+	cmdPtr = Tcl_NewListObj(0, NULL);
+	Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("tls::password", -1));
+    } else {
+	cmdPtr = Tcl_DuplicateObj(statePtr->password);
     }
 
-    dprintf("PasswordCallback: create callback command");
-
     /* Create command to eval with fn, rwflag, and size args */
-    cmdPtr = Tcl_DuplicateObj(statePtr->password);
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj("password", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(rwflag));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewIntObj(size));
