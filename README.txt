@@ -47,7 +47,7 @@ TCLTLS
 ------
 
 There were several changes made in the callback command arguments between
-versions 1.7 and 2.0. See the doc/tls.html for what changed and library/tls.tcl
+versions 1.7 and 2.0. See doc/tls.html for what changed and library/tls.tcl
 for example handler functions that are backwards compatible.
 
 

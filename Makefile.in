@@ -358,7 +358,7 @@ $(srcdir)/manifest.uuid:
 	    svn info --show-item last-changed-revision >>$(srcdir)/manifest.uuid) || \
 	    printf "unknown" >$(srcdir)/manifest.uuid)
 
-tlsUuid.h:	$(srcdir)/manifest.uuid
+tlsUuid.h: $(srcdir)/manifest.uuid
 	echo "#define TLS_VERSION_UUID \\" >$@
 	cat $(srcdir)/manifest.uuid >>$@
 	echo "" >>$@
@@ -495,7 +495,7 @@ install-lib-binaries: binaries
 	done
 	@if test "x$(SHARED_BUILD)" = "x1"; then \
 	    echo " Install pkgIndex.tcl $(DESTDIR)$(pkglibdir)"; \
-	    $(INSTALL_DATA) pkgIndex.tcl "$(DESTDIR)$(pkglibdir)"; \
+	    $(INSTALL_DATA) $(srcdir)/pkgIndex.tcl "$(DESTDIR)$(pkglibdir)"; \
 	fi
 	@if test -f "$(srcdir)/tlsConfig.sh"; then \
 	    $(INSTALL_DATA) $(srcdir)/tlsConfig.sh $(DESTDIR)$(libdir); \
