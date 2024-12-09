@@ -12,7 +12,6 @@
  *	SSLtcl (Peter Antman)
  *
  */
-
 #ifndef _TLSINT_H
 #define _TLSINT_H
 
@@ -224,16 +223,16 @@ typedef struct State {
  * Forward declarations
  */
 const Tcl_ChannelType *Tls_ChannelType(void);
-Tcl_Channel     Tls_GetParent(State *statePtr, int maskFlags);
+Tcl_Channel	Tls_GetParent(State *statePtr, int maskFlags);
 
-Tcl_Obj         *Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all);
+Tcl_Obj		*Tls_NewX509Obj(Tcl_Interp *interp, X509 *cert, int all);
 Tcl_Obj		*Tls_NewCAObj(Tcl_Interp *interp, const SSL *ssl, int peer);
-void            Tls_Error(State *statePtr, const char *msg);
-void            Tls_Free(tls_free_type *blockPtr);
-void            Tls_Clean(State *statePtr);
-int             Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
+void		Tls_Error(State *statePtr, const char *msg);
+void		Tls_Free(tls_free_type *blockPtr);
+void		Tls_Clean(State *statePtr);
+int		Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureIsPermanent);
 
-BIO             *BIO_new_tcl(State* statePtr, int flags);
+BIO		*BIO_new_tcl(State* statePtr, int flags);
 int		BIO_cleanup();
 
 #define PTR2INT(x) ((int) ((intptr_t) (x)))

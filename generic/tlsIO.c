@@ -11,8 +11,8 @@
  * to enhance it to support full fileevent semantics.
  *
  * Also work done by the follow people provided the impetus to do this "right":
- *    tclSSL (Colin McCormack, Shared Technology)
- *    SSLtcl (Peter Antman)
+ *	tclSSL (Colin McCormack, Shared Technology)
+ *	SSLtcl (Peter Antman)
  *
  */
 
@@ -38,10 +38,10 @@
  *	the Tcl_SetChannelOption() function is used with option -blocking.
  *
  * Results:
- *    0 if successful or POSIX error code if failed.
+ *	0 if successful or POSIX error code if failed.
  *
  * Side effects:
- *    Sets the device into blocking or nonblocking mode.
+ *	Sets the device into blocking or nonblocking mode.
  *
  *-----------------------------------------------------------------------------
  */
@@ -67,10 +67,10 @@ static int TlsBlockModeProc(ClientData instanceData, int mode) {
  *	used.
  *
  * Results:
- *    0 if successful or POSIX error code if failed.
+ *	0 if successful or POSIX error code if failed.
  *
  * Side effects:
- *    Closes the socket of the channel.
+ *	Closes the socket of the channel.
  *
  *-----------------------------------------------------------------------------
  */
@@ -126,10 +126,10 @@ static int TlsClose2Proc(ClientData instanceData,    /* The socket state. */
  *	equivalent of handshake function.
  *
  * Result:
- *    0 if successful, -1 if failed.
+ *    1 if successful, 0 if wait for connect, and -1 if failed.
  *
  * Side effects:
- *    Issues SSL_accept or SSL_connect
+ *	Issues SSL_accept or SSL_connect
  *
  *-----------------------------------------------------------------------------
  */
@@ -145,7 +145,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
     /* Can also check SSL_is_init_finished(ssl) */
     if (!(statePtr->flags & TLS_TCL_INIT)) {
 	dprintf("Tls_WaitForConnect called on already initialized channel -- returning with immediate success");
-	return 0;
+	return 1;
     }
 
     if (statePtr->flags & TLS_TCL_HANDSHAKE_FAILED) {
@@ -200,6 +200,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
 	/* The retry flag is set by the BIO_set_retry_* functions */
 	bioShouldRetry = BIO_should_retry(statePtr->bio);
+	dprintf("bioShouldRetry = %d", bioShouldRetry);
 
 	if (err <= 0) {
 	    if (rc == SSL_ERROR_WANT_CONNECT || rc == SSL_ERROR_WANT_ACCEPT) {
@@ -223,8 +224,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    if (statePtr->flags & TLS_TCL_ASYNC) {
 		dprintf("Returning EAGAIN so that it can be retried later");
 		*errorCodePtr = EAGAIN;
-		Tls_Error(statePtr, "Handshake not complete, will retry later");
-		return -1;
+		return 0;
 	    } else {
 		dprintf("Doing so now");
 		continue;
@@ -244,6 +244,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred, usually a protocol error */
+	    /* This includes certificate validation errors */
 	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
 	    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
 		Tls_Error(statePtr, X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
@@ -297,18 +298,18 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("SSL_ERROR_WANT_READ");
 	    BIO_set_retry_read(statePtr->bio);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    dprintf("ERR(SSL_ERROR_ZERO_RETURN, EAGAIN) ");
 	    statePtr->want |= TCL_READABLE;
-	    return -1;
+	    return 0;
 
 	case SSL_ERROR_WANT_WRITE:
 	    /* There is data in the SSL buffer that must be written to the underlying BIO in order to complete the SSL_*() operation. */
 	    dprintf("SSL_ERROR_WANT_WRITE");
 	    BIO_set_retry_write(statePtr->bio);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
+	    dprintf("ERR(SSL_ERROR_WANT_WRITE, EAGAIN) ");
 	    statePtr->want |= TCL_WRITABLE;
-	    return -1;
+	    return 0;
 
 	case SSL_ERROR_WANT_CONNECT:
 	    /* Connect would have blocked. */
@@ -316,8 +317,8 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    BIO_set_retry_special(statePtr->bio);
 	    BIO_set_retry_reason(statePtr->bio, BIO_RR_CONNECT);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
-	    return -1;
+	    dprintf("ERR(SSL_ERROR_WANT_CONNECT, EAGAIN) ");
+	    return 0;
 
 	case SSL_ERROR_WANT_ACCEPT:
 	    /* Accept would have blocked */
@@ -325,8 +326,8 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    BIO_set_retry_special(statePtr->bio);
 	    BIO_set_retry_reason(statePtr->bio, BIO_RR_ACCEPT);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
-	    return -1;
+	    dprintf("ERR(SSL_ERROR_WANT_ACCEPT, EAGAIN) ");
+	    return 0;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
 	    /* App callback set by SSL_CTX_set_client_cert_cb has asked to be called again */
@@ -335,8 +336,8 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    BIO_set_retry_special(statePtr->bio);
 	    BIO_set_retry_reason(statePtr->bio, BIO_RR_SSL_X509_LOOKUP);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
-	    return -1;
+	    dprintf("ERR(SSL_ERROR_WANT_X509_LOOKUP, EAGAIN) ");
+	    return 0;
 
 	case SSL_ERROR_WANT_ASYNC:
 	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an async engine is still processing data */
@@ -350,19 +351,18 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 #endif
 	default:
 	    /* The operation did not complete and should be retried later. */
-	    dprintf("Operation did not complete, call function again later: %i", rc);
+	    dprintf("Operation did not complete, call function again later");
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(%d, %d) ", rc, *errorCodePtr);
-	    Tls_Error(statePtr, "Operation did not complete, call function again later");
-	    return -1;
+	    dprintf("ERR(Other, EAGAIN) ");
+	    return 0;
     }
 
     dprintf("Removing the \"TLS_TCL_INIT\" flag since we have completed the handshake");
     statePtr->flags &= ~TLS_TCL_INIT;
 
-    dprintf("Returning in success");
+    dprintf("Returning success");
     *errorCodePtr = 0;
-    return 0;
+    return 1;
 }
 
 /*
@@ -379,7 +379,7 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
  *	a POSIX error code if an error occurred, or 0 if none.
  *
  * Side effects:
- *    Reads input from the input device of the channel.
+ *	Reads input from the input device of the channel.
  *
  * Data is received in whole blocks known as records from the peer. A whole
  * record is processed (e.g. decrypted) in one go and is buffered by OpenSSL
@@ -411,7 +411,6 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
 	if (tlsConnect < 0) {
 	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
-	    Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	    bytesRead = -1;
 	    if (*errorCodePtr == ECONNRESET) {
@@ -508,7 +507,6 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
 	    statePtr->want |= TCL_READABLE;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    BIO_set_retry_read(statePtr->bio);
 	    break;
 
@@ -518,7 +516,6 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
 	    statePtr->want |= TCL_WRITABLE;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    BIO_set_retry_write(statePtr->bio);
 	    break;
 
@@ -527,7 +524,6 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
 	    break;
 
 	case SSL_ERROR_SYSCALL:
@@ -567,9 +563,8 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
 	case SSL_ERROR_WANT_ASYNC:
 	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an async engine is still processing data */
 	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
-	    bytesRead = -1;
 	    *errorCodePtr = EAGAIN;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_ASYNC");
+	    bytesRead = -1;
 	    break;
 
 	default:
@@ -594,11 +589,11 @@ static int TlsInputProc(ClientData instanceData, char *buf, int bufSize, int *er
  *	functions are used. Equivalent to SSL_write_ex and SSL_write.
  *
  * Results:
- *    Returns the number of bytes written or -1 on error. Sets errorCodePtr
- *    to a POSIX error code if an error occurred, or 0 if none.
+ *	Returns the number of bytes written or -1 on error. Sets errorCodePtr
+ *	to a POSIX error code if an error occurred, or 0 if none.
  *
  * Side effects:
- *    Writes output on the output device of the channel.
+ *	Writes output on the output device of the channel.
  *
  *-----------------------------------------------------------------------------
  */
@@ -629,7 +624,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 1);
 	if (tlsConnect < 0) {
 	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
-	    Tls_Error(statePtr, strerror(*errorCodePtr));
 
 	    written = -1;
 	    if (*errorCodePtr == ECONNRESET) {
@@ -734,7 +728,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
 	    statePtr->want |= TCL_READABLE;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_READ");
 	    BIO_set_retry_read(statePtr->bio);
 	    break;
 
@@ -744,7 +737,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
 	    statePtr->want |= TCL_WRITABLE;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_WRITE");
 	    BIO_set_retry_write(statePtr->bio);
 	    break;
 
@@ -753,7 +745,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_X509_LOOKUP");
 	    break;
 
 	case SSL_ERROR_SYSCALL:
@@ -784,8 +775,8 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    /* Peer has closed the connection by sending the close_notify alert. Can't read, but can write. */
 	    /* Need to return an EOF, so channel is closed which will send an SSL_shutdown(). */
 	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
-	    written = 0;
 	    *errorCodePtr = 0;
+	    written = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    break;
 
@@ -794,7 +785,6 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
 	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
-	    Tls_Error(statePtr, "SSL_ERROR_WANT_ASYNC");
 	    break;
 
 	default:
@@ -812,10 +802,10 @@ static int TlsOutputProc(ClientData instanceData, const char *buf, int toWrite, 
  *
  * Tls_GetParent --
  *
- *    Get parent channel for a stacked channel.
+ *	Get parent channel for a stacked channel.
  *
  * Results:
- *    Tcl_Channel or NULL if none.
+ *	Tcl_Channel or NULL if none.
  *
  *-----------------------------------------------------------------------------
  */
@@ -838,10 +828,10 @@ Tcl_Channel Tls_GetParent(State *statePtr, int maskFlags) {
  *	generic I/O layer whenever the Tcl_SetChannelOption() function is used.
  *
  * Results:
- *    TCL_OK if successful or TCL_ERROR if failed.
+ *	TCL_OK if successful or TCL_ERROR if failed.
  *
  * Side effects:
- *    Updates channel option to new value.
+ *	Updates channel option to new value.
  *
  *-----------------------------------------------------------------------------
  */
@@ -884,7 +874,7 @@ TlsSetOptionProc(ClientData instanceData,    /* Socket state. */
  *	all options and their values is returned in the supplied DString.
  *
  * Side effects:
- *    None.
+ *	None.
  *
  *-------------------------------------------------------------------
  */
@@ -920,14 +910,14 @@ TlsGetOptionProc(ClientData instanceData,    /* Socket state. */
 /*
  *-----------------------------------------------------------------------------
  *
- *    TlsChannelHandlerTimer --
+ * TlsChannelHandlerTimer --
  *
  *	Called by the notifier via a timer, to flush out data waiting in
  *	channel buffers. called by the generic I/O layer whenever the
  *	Tcl_GetChannelHandle() function is used.
  *
  * Results:
- *        None.
+ *	None.
  *
  * Side effects:
  *	Creates notification event.
@@ -977,7 +967,7 @@ static void TlsChannelHandlerTimer(ClientData clientData) {
  *	called repeatedly.
  *
  * Results:
- *    None.
+ *	None.
  *
  * Side effects:
  *	Sets up the time-based notifier so that future events on the channel
@@ -1035,6 +1025,10 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
 	((mask & TCL_READABLE) && ((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) ||
 	((mask & TCL_WRITABLE) && ((Tcl_OutputBuffered(statePtr->self) > 0) || (BIO_ctrl_wpending(statePtr->bio) > 0))));
 
+    dprintf("IO Want=%d, input buffer=%d, output buffer=%d, BIO pending=%zd, BIO wpending=%zd", \
+	statePtr->want, Tcl_InputBuffered(statePtr->self), Tcl_OutputBuffered(statePtr->self), \
+	BIO_ctrl_pending(statePtr->bio), BIO_ctrl_wpending(statePtr->bio));
+
     if (!(mask & TCL_READABLE) || pending == 0) {
 	/* Remove timer, if any */
 	if (statePtr->timer != (Tcl_TimerToken) NULL) {
@@ -1061,10 +1055,10 @@ TlsWatchProc(ClientData instanceData,    /* The socket state. */
  *	specific handle associated with the channel. Not used for transforms.
  *
  * Results:
- *    The appropriate Tcl_File handle or NULL if none.
+ *	The appropriate Tcl_File handle or NULL if none.
  *
  * Side effects:
- *    None.
+ *	None.
  *
  *-----------------------------------------------------------------------------
  */
@@ -1088,10 +1082,10 @@ static int TlsGetHandleProc(ClientData instanceData,    /* Socket state. */
  *	channel.
  *
  * Results:
- *    Type of event or 0 if failed
+ *	Type of event or 0 if failed
  *
  * Side effects:
- *    May process the incoming event by itself.
+ *	May process the incoming event by itself.
  *
  *-----------------------------------------------------------------------------
  */
@@ -1124,9 +1118,13 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
 
     /* If not initialized, do connect */
     if (statePtr->flags & TLS_TCL_INIT) {
+	int tlsConnect;
+
 	dprintf("Calling Tls_WaitForConnect");
-	if (Tls_WaitForConnect(statePtr, &errorCode, 1) < 0) {
-	    Tls_Error(statePtr, strerror(errorCode));
+
+	tlsConnect = Tls_WaitForConnect(statePtr, &errorCode, 1);
+	if (tlsConnect < 1) {
+	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, errorCode);
 	    if (errorCode == EAGAIN) {
 		dprintf("Async flag could be set (didn't check) and errorCode == EAGAIN:  Returning failed");
 
@@ -1158,7 +1156,7 @@ static int TlsNotifyProc(ClientData instanceData,    /* Socket state. */
  *	Tcl_ChannelType structure.
  *
  * Side effects:
- *    None.
+ *	None.
  *
  *-----------------------------------------------------------------------------
  */

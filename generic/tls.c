@@ -427,8 +427,8 @@ VerifyCallback(
  *	Calls callback with error message.
  *
  * Side effects:
- *	The err field of the currently operative State is set
- *	  to a string describing the SSL negotiation failure reason
+ *	The err field of the currently operative State is set to a
+ *	string describing the SSL negotiation failure reason
  *
  *-------------------------------------------------------------------
  */
@@ -1771,7 +1771,7 @@ UnimportObjCmd(
     if (parent == NULL) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
 		"\": not a stacked channel", (char *)NULL);
-	    Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *)NULL);
+	Tcl_SetErrorCode(interp, "TLS", "UNIMPORT", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
 
@@ -1875,28 +1875,28 @@ TlsLoadClientCAFileFromMemory(
     /* Where the CA names go */
     certNames = sk_X509_NAME_new_null();
     if (!certNames) {
-        goto cleanup;
+	goto cleanup;
     }
 
     /* Attempt to load all certs from the PEM file */
     while ((cert = PEM_read_bio_X509(bio, NULL, 0, NULL)) != NULL) {
-        if (X509_STORE_add_cert(store, cert) == 0) {
-            X509_free(cert);
-            ret = 0;
-            goto cleanup;
-        }
-        /* Copy name to stack before certificate gets freed */
+	if (X509_STORE_add_cert(store, cert) == 0) {
+	    X509_free(cert);
+	    ret = 0;
+	    goto cleanup;
+	}
+	/* Copy name to stack before certificate gets freed */
 	name = X509_get_subject_name(cert);
-        if (name) {
-            X509_NAME *name_copy = X509_NAME_dup(name);
-            if (!name_copy || !sk_X509_NAME_push(certNames, name_copy)) {
-                X509_free(cert);
+	if (name) {
+	    X509_NAME *name_copy = X509_NAME_dup(name);
+	    if (!name_copy || !sk_X509_NAME_push(certNames, name_copy)) {
+		X509_free(cert);
 		ret = 0;
-                goto cleanup;
-            }
-        }
-        X509_free(cert);
-        ret ++;
+		goto cleanup;
+	    }
+	}
+	X509_free(cert);
+	ret ++;
     }
 
     /* At least one cert was added so retain the store and CA list */
@@ -2177,7 +2177,8 @@ CTX_Init(
 	} else {
 	    /* Use well known DH parameters that have built-in support in OpenSSL */
 	    if (!SSL_CTX_set_dh_auto(ctx, 1)) {
-		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(), (char *)NULL);
+		Tcl_AppendResult(interp, "Could not enable set DH auto: ", GET_ERR_REASON(),
+			(char *)NULL);
 		SSL_CTX_free(ctx);
 		return NULL;
 	    }
@@ -2256,7 +2257,7 @@ CTX_Init(
 	 * the SSL context */
 	if (!SSL_CTX_check_private_key(ctx)) {
 	    Tcl_AppendResult(interp, "private key does not match the certificate public key",
-			     (char *)NULL);
+		    (char *)NULL);
 	    SSL_CTX_free(ctx);
 	    return NULL;
 	}
@@ -2536,7 +2537,7 @@ static int ConnectionInfoObjCmd(
     chan = Tcl_GetTopChannel(chan);
     if (Tcl_GetChannelType(chan) != Tls_ChannelType()) {
 	Tcl_AppendResult(interp, "bad channel \"", Tcl_GetChannelName(chan),
-	    "\": not a TLS channel", (char *)NULL);
+		"\": not a TLS channel", (char *)NULL);
 	Tcl_SetErrorCode(interp, "TLS", "CONNECTION", "CHANNEL", "INVALID", (char *)NULL);
 	return TCL_ERROR;
     }
@@ -3227,7 +3228,7 @@ void TlsLibShutdown(
 /*
  *------------------------------------------------------*
  *
- *	TlsLibInit --
+ * TlsLibInit --
  *
  *	Initializes SSL library once per application
  *
@@ -3334,7 +3335,7 @@ DLLEXPORT int Tls_Init(
 /*
  *-------------------------------------------------------------------
  *
- *	Tls_SafeInit --
+ * Tls_SafeInit --
  *
  *	This is a package initialization procedure for safe interps.
  *
