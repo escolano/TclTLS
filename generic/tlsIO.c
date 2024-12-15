@@ -160,7 +160,6 @@ int Tls_WaitForConnect(State *statePtr, int *errorCodePtr, int handshakeFailureI
 	    dprintf("Asked to wait for a TLS handshake that has already failed.  Returning soft error");
 	    *errorCodePtr = ECONNRESET;
 	}
-	Tls_Error(statePtr, "Wait for failed handshake");
 	return -1;
     }
 
