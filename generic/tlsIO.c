@@ -79,12 +79,11 @@ static int TlsCloseProc(ClientData instanceData, Tcl_Interp *interp) {
 
     dprintf("TlsCloseProc(%p)", (void *) statePtr);
 
-    /* Flush any pending data */
-
     /* Send shutdown notification. Will return 0 while in process, then 1 when complete. */
     /* Closes the write direction of the connection; the read direction is closed by the peer. */
     /* Does not affect socket state. Don't call after fatal error. */
     if (statePtr->ssl != NULL && !(statePtr->flags & TLS_TCL_HANDSHAKE_FAILED)) {
+	BIO_flush(statePtr->bio);
 	SSL_shutdown(statePtr->ssl);
     }
 

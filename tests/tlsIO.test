@@ -1144,11 +1144,14 @@ test tlsIO-9.1 {testing spurious events} {socket} {
     # non-blocking because of TLS' required handshake
     fconfigure $c -blocking 0
     puts -nonewline $c 01234567890123456789012345678901234567890123456789
-    close $c
+    flush $c
+    set timer2 [after 2000 [list close $c]]
     set timer [after 10000 "set done timed_out"]
     vwait done
     after cancel $timer
-    close $s
+    after cancel $timer2
+    catch {close $c}
+    catch {close $s}
     list $spurious $len
 } {0 50}
 
