@@ -883,7 +883,6 @@ Content type is the message content type\&.
 .TP
 \fImessage\fR
 Message is more info from the \fBSSL_trace\fR API\&.
-This argument is new for TclTLS 1\&.8\&.
 .RE
 .TP
 \fBsession\fR \fIchannelId session_id session_ticket lifetime\fR
@@ -905,7 +904,7 @@ Lifetime is the ticket lifetime in seconds\&.
 .RE
 .TP
 \fBverify\fR \fIchannelId depth cert status error\fR
-This callback was moved to the \fB-verify_callback\fR in TclTLS 1\&.8\&.
+This callback was moved to \fB-validatecommand\fR in TclTLS 1\&.8\&.
 .PP
 .SS "VALUES FOR PASSWORD CALLBACK"
 The callback for the \fB-password\fR option is invoked by TclTLS whenever OpenSSL needs
@@ -1023,7 +1022,7 @@ It may be removed from future releases\&.\fR
 .SH "DEBUG EXAMPLES"
 These examples use the default Unix platform SSL certificates\&. For standard
 installations, -cadir and -cafile should not be needed\&. If your certificates
-are in non-standard locations, update -cadir or use -cafile as needed\&.
+are in non-standard locations, specify -cadir or -cafile as needed\&.
 .PP
 Example #1: Use HTTP package
 .CS
@@ -1034,7 +1033,7 @@ package require http
 package require tls
 set url "https://www\&.tcl\&.tk/"
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs  -command ::tls::callback -password ::tls::password -validatecommand ::tls::validate_command]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1  -command ::tls::callback -password ::tls::password  -validatecommand ::tls::validate_command]
 
 # Check for error
 set token [http::geturl $url]
@@ -1060,7 +1059,7 @@ package require tls
 set url "www\&.tcl-lang\&.org"
 set port 443
 
-set ch [tls::socket -autoservername 1 -servername $url -request 1 -require 1  -alpn {http/1\&.1} -cadir /etc/ssl/certs -command ::tls::callback  -password ::tls::password -validatecommand ::tls::validate_command $url $port]
+set ch [tls::socket -autoservername 1 -servername $url -require 1  -alpn {http/1\&.1} -command ::tls::callback -password ::tls::password  -validatecommand ::tls::validate_command $url $port]
 chan configure $ch -buffersize 65536
 tls::handshake $ch
 
@@ -1092,7 +1091,7 @@ package require http
 package require tls
 set url "https://www\&.tcl\&.tk/"
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
 # Check for error
 set token [http::geturl $url]
@@ -1119,7 +1118,7 @@ package require tls
 set url "https://wiki\&.tcl-lang\&.org/sitemap\&.xml"
 set filename [file tail $url]
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
 # Get file
 set ch [open $filename wb]

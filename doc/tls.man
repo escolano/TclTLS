@@ -654,7 +654,6 @@ Content type is the message content type.
 
 [def [arg message]]
 Message is more info from the [const SSL_trace] API.
-This argument is new for TclTLS 1.8.
 
 [list_end]
 
@@ -679,7 +678,7 @@ Lifetime is the ticket lifetime in seconds.
 [list_end]
 
 [opt_def verify [arg "channelId depth cert status error"]]
-This callback was moved to the [option -verify_callback] in TclTLS 1.8.
+This callback was moved to [option -validatecommand] in TclTLS 1.8.
 
 [list_end]
 
@@ -827,7 +826,7 @@ It may be removed from future releases."]
 
 These examples use the default Unix platform SSL certificates. For standard
 installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, update -cadir or use -cafile as needed.
+are in non-standard locations, specify -cadir or -cafile as needed.
 
 [para]
 
@@ -839,8 +838,9 @@ package require http
 package require tls
 set url "https://www.tcl.tk/"
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs \
-    -command ::tls::callback -password ::tls::password -validatecommand ::tls::validate_command]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1 \
+    -command ::tls::callback -password ::tls::password \
+    -validatecommand ::tls::validate_command]
 
 # Check for error
 set token [http::geturl $url]
@@ -865,9 +865,9 @@ package require tls
 set url "www.tcl-lang.org"
 set port 443
 
-set ch [tls::socket -autoservername 1 -servername $url -request 1 -require 1 \
-    -alpn {http/1.1} -cadir /etc/ssl/certs -command ::tls::callback \
-    -password ::tls::password -validatecommand ::tls::validate_command $url $port]
+set ch [tls::socket -autoservername 1 -servername $url -require 1 \
+    -alpn {http/1.1} -command ::tls::callback -password ::tls::password \
+    -validatecommand ::tls::validate_command $url $port]
 chan configure $ch -buffersize 65536
 tls::handshake $ch
 
@@ -901,7 +901,7 @@ package require http
 package require tls
 set url "https://www.tcl.tk/"
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
 # Check for error
 set token [http::geturl $url]
@@ -927,7 +927,7 @@ package require tls
 set url "https://wiki.tcl-lang.org/sitemap.xml"
 set filename [file tail $url]
 
-http::register https 443 [list ::tls::socket -autoservername true -require true -cadir /etc/ssl/certs]
+http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
 # Get file
 set ch [open $filename wb]
