@@ -184,7 +184,7 @@ Specifies the session id to resume a session. Not supported yet.
 Enable use of SSL v2. The default is [const false]. Note: Recent versions of
 OpenSSL no longer support SSLv2, so this may not have any effect. See the
 [cmd tls::protocols] command for supported protocols.
-	
+
 [opt_def -ssl3 [arg bool]]
 Enable use of SSL v3. The default is [const false]. Note: Recent versions
 of OpenSSL may have this disabled at compile time, so this may not have any
@@ -563,7 +563,7 @@ or [var SSL_CERT_FILE] environment variables are set, then [option -cadir],
 
 [item]
 If OpenSSL is not installed in the default location, or when using Mac OS
-or Windows and OpenSSL is installed, the [var SSL_CERT_DIR] and/or 
+or Windows and OpenSSL is installed, the [var SSL_CERT_DIR] and/or
 [var SSL_CERT_FILE] environment variables or the one of the [option -cadir],
 [option -cadir], or [option -castore] options must be defined.
 
@@ -598,7 +598,7 @@ The callback for the [option -command] option is invoked at several points durin
 OpenSSL handshake and during routine operations. See below for the possible
 arguments passed to the callback script. Values returned from the callback are
 ignored.
-	
+
 [list_begin options]
 
 [opt_def error [arg "channelId message"]]
@@ -630,7 +630,7 @@ depending on the context.
 [def [arg type]]
 For alerts, the possible values are: [const warning],
 [const fatal], and [const unknown]. For others, [const info] is used.
-This argument is new for TclTLS 1.8. 
+This argument is new for TclTLS 1.8.
 
 [list_end]
 
@@ -688,7 +688,7 @@ The callback for the [option -password] option is invoked by TclTLS whenever Ope
 to obtain a password. See below for the possible arguments passed to the
 callback script. The user provided password is expected to be returned by the
 callback.
-	
+
 [list_begin options]
 
 [opt_def password [arg "rwflag size"]]
@@ -718,7 +718,7 @@ specified, OpenSSL will accept all valid certificates and extensions. To reject
 the value and abort the connection, the callback should return 0. To accept the
 value and continue the connection, it should return 1. To reject the value, but
 continue the connection, it should return 2. This callback is new for TclTLS 1.8.
-	
+
 [list_begin options]
 
 [opt_def alpn [arg "channelId protocol match"]]

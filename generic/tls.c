@@ -1446,7 +1446,7 @@ ImportObjCmd(
     statePtr->vflags	= verify;
     statePtr->err	= "";
 
-    /* allocate script */
+    /* Allocate callback script */
     if (script) {
 	(void) Tcl_GetStringFromObj(script, &len);
 	if (len) {
@@ -1455,7 +1455,7 @@ ImportObjCmd(
 	}
     }
 
-    /* allocate password */
+    /* Allocate password callback */
     if (password) {
 	(void) Tcl_GetStringFromObj(password, &len);
 	if (len) {
@@ -1464,7 +1464,7 @@ ImportObjCmd(
 	}
     }
 
-    /* allocate validate command */
+    /* Allocate validate callback */
     if (vcmd) {
 	(void) Tcl_GetStringFromObj(vcmd, &len);
 	if (len) {
@@ -1472,6 +1472,13 @@ ImportObjCmd(
 	    Tcl_IncrRefCount(statePtr->vcmd);
 	}
     }
+
+    /* Set default CA store on Windows */
+#if OPENSSL_VERSION_NUMBER >= 0x30200000L && (defined(_WIN32))
+    if (CAstore == NULL && CAfile == NULL && CApath == NULL) {
+	CAstore = "org.openssl.winstore://";
+    }
+#endif
 
     if (model != NULL) {
 	int mode;
