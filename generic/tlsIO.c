@@ -986,31 +986,28 @@ static void TlsChannelHandlerTimer(
     State *statePtr = (State *) clientData;
     int mask = statePtr->want; /* Init to SSL_ERROR_WANT_READ and SSL_ERROR_WANT_WRITE */
 
-    dprintf("Called");
+    dprintf("Called with mask 0x%02x", mask);
 
     statePtr->timer = (Tcl_TimerToken) NULL;
 
-    /* Check for amount of data pending in BIO write buffer */
-    if (BIO_wpending(statePtr->bio)) {
+    /* Check for amount of data pending in IO or BIO write buffer */
+    if (Tcl_OutputBuffered(statePtr->self) || BIO_wpending(statePtr->bio)) {
 	dprintf("[chan=%p] BIO writable", statePtr->self);
 
 	mask |= TCL_WRITABLE;
     }
 
-    /* Check for amount of data pending in BIO read buffer */
-    if (BIO_pending(statePtr->bio)) {
+    /* Check for amount of data pending in IO or BIO read buffer */
+    if (Tcl_InputBuffered(statePtr->self) || BIO_pending(statePtr->bio)) {
 	dprintf("[chan=%p] BIO readable", statePtr->self);
 
 	mask |= TCL_READABLE;
     }
 
-    /* Notify the generic IO layer that the mask events have occurred on the channel */
-    dprintf("Notifying ourselves");
+    /* Notify the generic IO layer that mask events have occurred on the channel */
+    dprintf("Notifying ourselves with mask=%d", mask);
     Tcl_NotifyChannel(statePtr->self, mask);
     statePtr->want = 0;
-
-    dprintf("Returning");
-
     return;
 }
 
@@ -1083,9 +1080,9 @@ TlsWatchProc(
 	((mask & TCL_READABLE) && ((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) ||
 	((mask & TCL_WRITABLE) && ((Tcl_OutputBuffered(statePtr->self) > 0) || (BIO_ctrl_wpending(statePtr->bio) > 0))));
 
-    dprintf("IO Want=%d, input buffer=%d, output buffer=%d, BIO pending=%zd, BIO wpending=%zd", \
+    dprintf("IO Want=%d, input buffer=%d, output buffer=%d, BIO pending=%zd, BIO wpending=%zd, pending=%d", \
 	statePtr->want, Tcl_InputBuffered(statePtr->self), Tcl_OutputBuffered(statePtr->self), \
-	BIO_ctrl_pending(statePtr->bio), BIO_ctrl_wpending(statePtr->bio));
+	BIO_ctrl_pending(statePtr->bio), BIO_ctrl_wpending(statePtr->bio), pending);
 
     if (!(mask & TCL_READABLE) || pending == 0) {
 	/* Remove timer, if any */
@@ -1157,21 +1154,10 @@ static int TlsNotifyProc(
     State *statePtr = (State *) instanceData;
     int errorCode = 0;
 
-    dprintf("Called");
+    dprintf("Called with mask 0x%02x", mask);
 
-    /*
-     * Delete an existing timer. It was not fired, yet we are
-     * here, so the channel below generated such an event and we
-     * don't have to. The renewal of the interest after the
-     * execution of channel handlers will eventually cause us to
-     * recreate the timer (in WatchProc).
-     */
-    if (statePtr->timer != (Tcl_TimerToken) NULL) {
-	Tcl_DeleteTimerHandler(statePtr->timer);
-	statePtr->timer = (Tcl_TimerToken) NULL;
-    }
-
-    /* Skip if user verify callback is still running */
+    /* Abort if the user verify callback is still running to avoid triggering
+     * another call before the current one is complete. */
     if (statePtr->flags & TLS_TCL_CALLBACK) {
 	dprintf("Callback is on-going, returning failed");
 	return 0;
@@ -1196,13 +1182,22 @@ static int TlsNotifyProc(
 	}
     }
 
-    dprintf("Returning %i", mask);
+    /*
+     * Delete an existing timer. It was not fired, yet we are here, so the
+     * channel below generated such an event and we don't have to. The renewal
+     * of the interest after the execution of channel handlers will eventually
+     * cause us to recreate the timer (in WatchProc).
+     */
+    if (statePtr->timer != (Tcl_TimerToken) NULL) {
+	Tcl_DeleteTimerHandler(statePtr->timer);
+	statePtr->timer = (Tcl_TimerToken) NULL;
+    }
 
     /*
-     * An event occurred in the underlying channel.  This
-     * transformation doesn't process such events thus returns the
-     * incoming mask unchanged.
+     * An event occurred in the underlying channel. This transformation doesn't
+     * process such events thus returns the incoming mask unchanged.
      */
+    dprintf("Returning %i", mask);
     return mask;
 }
 

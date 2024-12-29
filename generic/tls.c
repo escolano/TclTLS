@@ -231,6 +231,7 @@ MessageCallback(
     char *ver, *type;
     BIO *bio;
     char buffer[15000];
+    Tcl_Size blen = 0;
     buffer[0] = 0;
 
     dprintf("Called");
@@ -300,11 +301,10 @@ MessageCallback(
 
     /* Needs compile time option "enable-ssl-trace". */
     if ((bio = BIO_new(BIO_s_mem())) != NULL) {
-	int n;
 	SSL_trace(write_p, version, content_type, buf, len, ssl, (void *)bio);
-	n = BIO_read(bio, buffer, BIO_pending(bio) < 15000 ? BIO_pending(bio) : 14999);
-	n = (n<0) ? 0 : n;
-	buffer[n] = 0;
+	blen = (Tcl_Size) BIO_read(bio, buffer, BIO_pending(bio) < 15000 ? BIO_pending(bio) : 14999);
+	blen = (blen<0) ? 0 : blen;
+	buffer[blen] = 0;
 	(void)BIO_flush(bio);
 	BIO_free(bio);
    }
@@ -319,7 +319,7 @@ MessageCallback(
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(write_p ? "Sent" : "Received", -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(ver, -1));
     Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(type, -1));
-    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(buffer, -1));
+    Tcl_ListObjAppendElement(interp, cmdPtr, Tcl_NewStringObj(buffer, blen));
 
     /* Eval callback command */
     Tcl_IncrRefCount(cmdPtr);
@@ -2568,7 +2568,7 @@ static int ConnectionInfoObjCmd(
 	LAPPEND_STR(interp, objPtr, "servername", SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name), -1);
 
 	/* Report the selected protocol as a result of the negotiation */
-	SSL_get0_alpn_selected(statePtr->ssl, &proto, &ulen);
+	SSL_get0_alpn_selected(ssl, &proto, &ulen);
 	LAPPEND_STR(interp, objPtr, "alpn", (char *)proto, (Tcl_Size) ulen);
 
 	/* Get protocol */
@@ -3104,11 +3104,11 @@ void Tls_Clean(
 	statePtr->protos = NULL;
     }
 
-    /* BIO_free_all() frees up an entire BIO chain */
+    /* BIO_free() frees up a single BIO */
     if (statePtr->bio) {
 	/* This will call SSL_shutdown. Bug 1414045 */
 	dprintf("BIO_free(%p)", statePtr->bio);
-	BIO_free_all(statePtr->bio);
+	BIO_free(statePtr->bio);
 	statePtr->bio = NULL;
     }
 
