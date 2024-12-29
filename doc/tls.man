@@ -82,20 +82,20 @@ default location can be overridden by the [var SSL_CERT_DIR] environment
 variable. See [sectref "Certificate Validation"] for more details.
 
 [opt_def -cafile [arg filename]]
-Specifies the file with the Certificate Authority (CA) certificates to use.
-The default is [file cert.pem], in the OpenSSL directory. The default file can
-be overridden by the [var SSL_CERT_FILE] environment variable. See
-[sectref "Certificate Validation"] for more details.
+Specifies the file with the Certificate Authority (CA) certificates to use in
+[const PEM] file format. The default is [file cert.pem], in the OpenSSL
+directory. The default file can be overridden by the [var SSL_CERT_FILE] environment
+variable. See [sectref "Certificate Validation"] for more details.
 
 [opt_def -castore [arg URI]]
 Specifies the Uniform Resource Identifier (URI) for the Certificate Authority
 (CA) store, which may be a single container or a catalog of containers.
-Starting with OpenSSL 3.2 on Windows, set to "[const "org.openssl.winstore://"]"
-to use the built-in Windows Certificate Store. This store only supports root
-certificate stores. See [sectref "Certificate Validation"] for more details.
+Starting with OpenSSL 3.2 on MS Windows, set to "[const "org.openssl.winstore://"]"
+to use the built-in MS Windows Certificate Store. See
+[sectref "Certificate Validation"] for more details.
 
 [opt_def -certfile [arg filename]]
-Specifies the name of the file with the certificate in PEM format to use
+Specifies the name of the file with the certificate to use in PEM format
 as the local (client or server) certificate. It also contains the public key.
 
 [opt_def -cert [arg string]]
@@ -128,7 +128,7 @@ See [sectref "Callback Options"] for more info.
 Specifies the Diffie-Hellman (DH) parameters file.
 
 [opt_def -keyfile [arg filename]]
-Specifies the private key file. The default value is to use the file
+Specifies the private key file. The default is to use the file
 specified by the [arg -certfile] option.
 
 [opt_def -key [arg string]]
@@ -148,16 +148,18 @@ for more info.
 Allow post-handshake session ticket updates.
 
 [opt_def -request [arg bool]]
-Request a certificate from peer during the SSL handshake. This is needed to do
-Certificate Validation. Default is [const true].
+Request a certificate from the peer during the SSL handshake. This is needed
+to do Certificate Validation. Starting in TclTLS 1.8, the default is
+[const true].
 See [sectref "Certificate Validation"] for more details.
 
 [opt_def -require [arg bool]]
-Require a valid certificate from peer during the SSL handshake. If this is set to
-true, then [option -request] must also be set to true and a either [option -cadir],
-[option -cafile], [option -castore], or a platform default must be provided in order to
-validate against. The default is [const false] since not all platforms have
-certificates to validate against in a form compatible with OpenSSL.
+Require a valid certificate from the peer during the SSL handshake. If this is
+set to true, then [option -request] must also be set to true and a either
+[option -cadir], [option -cafile], [option -castore], or a platform default
+must be provided in order to validate against. The default in TclTLS 1.8 and
+earlier versions is [const false] since not all platforms have certificates to
+validate against in a form compatible with OpenSSL.
 See [sectref "Certificate Validation"] for more details.
 
 [opt_def -security_level [arg integer]]
@@ -503,9 +505,40 @@ Returns the OpenSSL version string.
 
 [section "Certificate Validation"]
 
+[subsection "PKI and Certificates"]
+
+Using the Public Key Infrastructure (PKI), each user creates a private key that
+only they know about and a public key they can exchange with others for use in
+encrypting and decrypting data. The process is the sender encrypts their data
+using their private key and the receiver's public key. The data is then sent
+to the receiver. In a similar manner, the receiver uses their private key and
+the sender's public key to decrypt the data. This provides data integrity, to
+ensure the data can't be viewed or altered during transport. See the
+[option -key] and [option -keyfile] options for how to specify the private key.
+Also see the [option -password] option for how to provide the password.
+[para]
+In order to provide authentication, i.e. ensuring someone is who they say they
+are, the public key and user identification info is stored in a X.509
+certificate and that certificate is authenticated (i.e. signed) by a Certificate
+Authority (CA). Users can then exchange these certificates during the TLS
+initialization process and check them against the root CA certificates to ensure
+they are valid. This is handled by OpenSSL via the [option -request] and
+[option -require] options. See the [option -cadir], [option -cadir], and
+[option -castore] options for how tp specify where to find the CA certificates.
+Optionally, in a future release, they can also be checked against the Certificate
+Revocation List (CRL) of revoked certificates. Certificates can also be
+self-signed, but they are by default not trusted unless you add them to your
+certificate store.
+[para]
+Typically when visiting web sites, only the client needs to check the server's
+certificate to ensure it is valid. The server doesn't need to check the client
+certificate unless you need to authenticate with them to login, etc. See the
+[option -cert] and [option -certfile] options if you need to provide a certificate.
+
+
 [subsection "Summary of command line options"]
 
-The following options are used for peer Certificate Validation:
+The following options are used for peer certificate validation:
 
 [list_begin options]
 
@@ -517,64 +550,69 @@ Linux/Unix systems. The default location can be overridden by the
 
 [opt_def -cafile [arg filename]]
 Specifies the file with the Certificate Authority (CA) certificates to use in
-[const PEM] file format. The default is [file cert.pem], in the OpenSSL directory. On
-Linux/Unix systems, this is usually [file /etc/ssl/ca-bundle.pem]. The default file
-can be overridden by the [var SSL_CERT_FILE] environment variable.
+[const PEM] file format. The default is [file cert.pem], in the OpenSSL
+directory. On Linux/Unix systems, this is usually [file /etc/ssl/ca-bundle.pem].
+The default file can be overridden by the [var SSL_CERT_FILE] environment
+variable.
 
 [opt_def -castore [arg URI]]
 Specifies the Uniform Resource Identifier (URI) for the Certificate Authority
 (CA) store, which may be a single container or a catalog of containers.
-Starting with OpenSSL 3.2 on Windows, set to "[const "org.openssl.winstore://"]"
-to use the built-in Windows Certificate Store. This store only supports root
-certificate stores.
+Starting with OpenSSL 3.2 on MS Windows, set to "[const "org.openssl.winstore://"]"
+to use the built-in MS Windows Certificate Store.
+This store only supports root certificate stores. See
+[sectref "Certificate Validation"] for more details.
 
 [opt_def -request [arg bool]]
-Request a certificate from peer during the SSL handshake. This is needed to do
-Certificate Validation. Default is [const true]. In addition, the
-client can manually inspect and accept or reject each certificate using the
-[arg -validatecommand] option.
+Request a certificate from the peer during the SSL handshake. This is needed
+to do Certificate Validation. Starting in TclTLS 1.8, the default is
+[const true]. In addition, the client can manually inspect and accept or reject
+each certificate using the [arg -validatecommand] option.
 
 [opt_def -require [arg bool]]
-Require a valid certificate from peer during the SSL handshake. If this is set
-to [const true], then [arg -request] must also be set to [const true] and either
-[arg -cadir], [arg -cafile], [arg -castore], or a platform default must be
-provided in order to validate against. The default is [const false] since not
-all platforms have certificates to validate against in a form compatible with
-OpenSSL. See [sectref "Certificate Validation"] for more details.
+Require a valid certificate from the peer during the SSL handshake. If this is
+set to true, then [option -request] must also be set to true and a either
+[option -cadir], [option -cafile], [option -castore], or a platform default
+must be provided in order to validate against. The default in TclTLS 1.8 and
+earlier versions is [const false] since not all platforms have certificates to
+validate against in a form compatible with OpenSSL.
 
 [list_end]
 
 [subsection "When are command line options needed?"]
 
-By default, a client TLS connection does [emph NOT] validate the server certificate
-chain. This limitation is due to the lack of a common cross platform
-database of Certificate Authority (CA) provided certificates to validate
-against. Many Linux systems natively support OpenSSL and thus have these
-certificates installed as part of the OS, but MacOS and Windows do not. In
-order to use the [option -require] option, one of the following must be true:
+In TclTLS 1.8 and earlier versions, certificate validation is
+[emph NOT] enabled by default. This limitation is due to the lack of a common
+cross platform database of Certificate Authority (CA) provided certificates to
+validate against. Many Linux systems natively support OpenSSL and thus have
+these certificates installed as part of the OS, but MacOS and MS Windows do not.
+In order to use the [option -require] option, one of the following
+must be true:
 
 [list_begin itemized]
 
 [item]
-On Linux and Unix systems with OpenSSL already installed, if the CA
-certificates are stored in the standard locations, or if the [var SSL_CERT_DIR]
-or [var SSL_CERT_FILE] environment variables are set, then [option -cadir],
-[option -cadir], and [option -castore] aren't needed.
+On Linux and Unix systems with OpenSSL already installed or if the CA
+certificates are available in PEM format, and if they are stored in the
+standard locations, or if the [var SSL_CERT_DIR] or [var SSL_CERT_FILE]
+environment variables are set, then [option -cadir], [option -cadir],
+and [option -castore] aren't needed.
 
 [item]
 If OpenSSL is not installed in the default location, or when using Mac OS
-or Windows and OpenSSL is installed, the [var SSL_CERT_DIR] and/or
+or MS Windows and OpenSSL is installed, the [var SSL_CERT_DIR] and/or
 [var SSL_CERT_FILE] environment variables or the one of the [option -cadir],
 [option -cadir], or [option -castore] options must be defined.
 
 [item]
-On Windows, starting in OpenSSL 3.2, it is now possible to access the
-built-in Windows Certificate Store from OpenSSL. This can be achieved by
+On MS Windows, starting in OpenSSL 3.2, it is now possible to access the
+built-in Windows Certificate Store from OpenSSL. This can utilized by
 setting the [option -castore] option to "[const org.openssl.winstore://]".
 
 [item]
-If OpenSSL is not installed, the CA certificates must be downloaded and
-installed with the user software. The CURL team makes them available at
+If OpenSSL is not installed or the CA certificates are not available in PEM
+format, the CA certificates must be downloaded and installed with the user
+software. The CURL team makes them available at
 [uri "https://curl.se/docs/caextract.html" "CA certificates extracted
 from Mozilla"] in the [file cacert.pem] file. You must then either set the
 [var SSL_CERT_DIR] and/or [var SSL_CERT_FILE] environment variables or the

@@ -3098,25 +3098,30 @@ void Tls_Clean(
 	statePtr->vcmd = NULL;
     }
 
+    /* Remove list of ALPN protocols */
     if (statePtr->protos) {
 	ckfree(statePtr->protos);
 	statePtr->protos = NULL;
     }
 
+    /* BIO_free_all() frees up an entire BIO chain */
     if (statePtr->bio) {
 	/* This will call SSL_shutdown. Bug 1414045 */
-	dprintf("BIO_free_all(%p)", statePtr->bio);
+	dprintf("BIO_free(%p)", statePtr->bio);
 	BIO_free_all(statePtr->bio);
 	statePtr->bio = NULL;
     }
 
+    /* Free SSL context and statePtr->p_bio  */
     if (statePtr->ssl) {
-	dprintf("SSL_free(%p)", statePtr->ssl);
+	dprintf("SSL_free(%p) and p_bio(%p)", statePtr->ssl, statePtr->p_bio);
 	SSL_free(statePtr->ssl);
 	statePtr->ssl = NULL;
     }
 
+    /* Free CTX context */
     if (statePtr->ctx) {
+	dprintf("SSL_CTX_free(%p)", statePtr->ctx);
 	SSL_CTX_free(statePtr->ctx);
 	statePtr->ctx = NULL;
     }

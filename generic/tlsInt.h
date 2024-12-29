@@ -165,7 +165,7 @@
 /*
  * Defines for State.flags
  */
-#define TLS_TCL_ASYNC		(1<<0)	/* non-blocking mode */
+#define TLS_TCL_ASYNC		(1<<0)	/* Non-blocking mode */
 #define TLS_TCL_SERVER		(1<<1)	/* Server-Side */
 #define TLS_TCL_INIT		(1<<2)	/* Initializing connection */
 #define TLS_TCL_DEBUG		(1<<3)	/* Show debug tracing */
@@ -173,7 +173,8 @@
 					 * looping problem. [Bug 1652380] */
 #define TLS_TCL_HANDSHAKE_FAILED (1<<5) /* Set on handshake failures and once set, all
 					 * further I/O will result in ECONNABORTED errors. */
-#define TLS_TCL_FASTPATH 	(1<<6)	/* The parent channel is being used directly by the SSL library */
+#define TLS_TCL_FASTPATH 	(1<<6)	/* The parent channel is being used
+					 * directly by the SSL library. */
 #define TLS_TCL_DELAY (5)
 
 /*
@@ -182,20 +183,20 @@
  * The SSL processing context is maintained here, in the ClientData
  */
 typedef struct State {
-	Tcl_Channel self;	/* this socket channel */
-	Tcl_TimerToken timer;
+	Tcl_Channel self;	/* This socket channel */
+	Tcl_TimerToken timer;	/* I/O timer handle */
 
-	int flags;		/* see State.flags above  */
-	int watchMask;		/* current WatchProc mask */
-	int want;		/* pending wants from OpenSSL */
-	int mode;		/* current mode of parent channel */
+	int flags;		/* See State.flags above  */
+	int watchMask;		/* Current WatchProc mask */
+	int want;		/* Pending wants from OpenSSL */
+	int mode;		/* Current mode of parent channel */
 
-	Tcl_Interp *interp;	/* interpreter in which this resides */
-	Tcl_Obj *callback;	/* script called for tracing, info, and errors */
-	Tcl_Obj *password;	/* script called for certificate password */
-	Tcl_Obj *vcmd;		/* script called to verify or validate protocol config */
+	Tcl_Interp *interp;	/* Interpreter in which this resides */
+	Tcl_Obj *callback;	/* Script called for tracing, info, and errors */
+	Tcl_Obj *password;	/* Script called for certificate password */
+	Tcl_Obj *vcmd;		/* Script called to verify or validate protocol config */
 
-	int vflags;		/* verify flags */
+	int vflags;		/* Verify flags */
 	SSL *ssl;		/* Struct for SSL processing */
 	SSL_CTX *ctx;		/* SSL Context */
 	BIO *bio;		/* Struct for SSL processing */

@@ -9,11 +9,11 @@
 
 /*
 		tlsBIO.c				tlsIO.c
-  +------+                         +-----+                                     +------+
-  |      |Tcl_WriteRaw <-- BioWrite| SSL |BIO_write <-- TlsOutputProc <-- Write|      |
-  |socket|      <encrypted>        | BIO |            <unencrypted>            | App  |
-  |      |Tcl_ReadRaw  -->  BioRead|     |BIO_Read  --> TlsInputProc  -->  Read|      |
-  +------+                         +-----+                                     +------+
+ +------+                        +---+                                 +---+
+ |      |Tcl_WriteRaw<--BioOutput|SSL|BIO_write<--TlsOutputProc<--Write|   |
+ |socket|      <encrypted>       |BIO|            <unencrypted>        |App|
+ |      |Tcl_ReadRaw --> BioInput|   |BIO_Read -->TlsInputProc --> Read|   |
+ +------+                        +---+                                 +---+
 */
 
 #include "tlsInt.h"
@@ -61,7 +61,7 @@ static int BIOShouldRetry(int code) {
 /*
  *-----------------------------------------------------------------------------
  *
- * BioWrite --
+ * BioOutput --
  *
  *	This function is used to read encrypted data from the BIO and write it
  *	into the socket. This function will be called in response to the
@@ -77,13 +77,14 @@ static int BIOShouldRetry(int code) {
  *-----------------------------------------------------------------------------
  */
 
-static int BioWrite(BIO *bio, const char *buf, int bufLen) {
+static int BioOutput(BIO *bio, const char *buf, int bufLen) {
     Tcl_Size ret;
     int is_eof, tclErrno;
     State *statePtr = (State *) BIO_get_data(bio);
     Tcl_Channel chan = Tls_GetParent(statePtr, 0);
 
-    dprintf("[chan=%p] BioWrite(bio=%p, buf=%p, len=%d)", (void *)chan, (void *) bio, buf, bufLen);
+    dprintf("[chan=%p] BioOutput(bio=%p, buf=%p, len=%d)", (void *)chan,
+	(void *) bio, buf, bufLen);
 
     BIO_clear_retry_flags(bio);
     Tcl_SetErrno(0);
@@ -93,7 +94,7 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
     is_eof = Tcl_Eof(chan);
     tclErrno = Tcl_GetErrno();
 
-    dprintf("[chan=%p] BioWrite(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d: %s]",
+    dprintf("[chan=%p] BioOutput(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; tclErrno=%d: %s]",
 	(void *) chan, bufLen, ret, is_eof, tclErrno, Tcl_ErrnoMsg(tclErrno));
 
     if (ret > 0) {
@@ -125,14 +126,14 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
 	}
     }
 
-    dprintf("BioWrite returning %" TCL_SIZE_MODIFIER "d", ret);
+    dprintf("BioOutput returning %" TCL_SIZE_MODIFIER "d", ret);
     return (int) ret;
 }
 
 /*
  *-----------------------------------------------------------------------------
  *
- * BioRead --
+ * BioInput --
  *
  *	This function is used to read encrypted data from the socket and
  *	write it into the BIO. This function will be called in response to the
@@ -155,13 +156,14 @@ static int BioWrite(BIO *bio, const char *buf, int bufLen) {
  *-----------------------------------------------------------------------------
  */
 
-static int BioRead(BIO *bio, char *buf, int bufLen) {
+static int BioInput(BIO *bio, char *buf, int bufLen) {
     Tcl_Size ret = 0;
     int is_eof, tclErrno, is_blocked;
     State *statePtr = (State *) BIO_get_data(bio);
     Tcl_Channel chan = Tls_GetParent(statePtr, 0);
 
-    dprintf("[chan=%p] BioRead(bio=%p, buf=%p, len=%d)", (void *) chan, (void *) bio, buf, bufLen);
+    dprintf("[chan=%p] BioInput(bio=%p, buf=%p, len=%d)", (void *) chan,
+	(void *) bio, buf, bufLen);
 
     if (buf == NULL || bufLen <= 0) {
 	return 0;
@@ -177,7 +179,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
     tclErrno = Tcl_GetErrno();
     is_blocked = Tcl_InputBlocked(chan);
 
-    dprintf("[chan=%p] BioRead(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; blocked=%d; tclErrno=%d: %s]",
+    dprintf("[chan=%p] BioInput(%d) -> %" TCL_SIZE_MODIFIER "d [tclEof=%d; blocked=%d; tclErrno=%d: %s]",
 	(void *) chan, bufLen, ret, is_eof, is_blocked, tclErrno, Tcl_ErrnoMsg(tclErrno));
 
     if (ret > 0) {
@@ -206,7 +208,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 	}
     }
 
-    dprintf("BioRead returning %" TCL_SIZE_MODIFIER "d", ret);
+    dprintf("BioInput returning %" TCL_SIZE_MODIFIER "d", ret);
     return (int) ret;
 }
 
@@ -231,7 +233,7 @@ static int BioRead(BIO *bio, char *buf, int bufLen) {
 static int BioPuts(BIO *bio, const char *str) {
     dprintf("BioPuts(%p) \"%s\"", bio, str);
 
-    return BioWrite(bio, str, (int) strlen(str));
+    return BioOutput(bio, str, (int) strlen(str));
 }
 
 /*
@@ -322,7 +324,7 @@ static long BioCtrl(BIO *bio, int cmd, long num, void *ptr) {
 		/* Use Tcl_WriteRaw instead of Tcl_Flush to operate on right chan in stack */
 		/* Returns 1 for success, <=0 for error/retry. */
 		ret = ((chan) && (Tcl_WriteRaw(chan, "", 0) >= 0) ? 1 : -1);
-		/*ret = BioWrite(bio, NULL, 0);*/
+		/*ret = BioOutput(bio, NULL, 0);*/
 		break;
 	case BIO_CTRL_DUP:
 		/* man - extra stuff for 'duped' BIO. Implements BIO_dup_state */
@@ -495,9 +497,9 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 	    return NULL;
 	}
 	/* Not used BIO_meth_set_write_ex */
-	BIO_meth_set_write(BioMethods, BioWrite);
+	BIO_meth_set_write(BioMethods, BioOutput);
 	/* Not used BIO_meth_set_read_ex */
-	BIO_meth_set_read(BioMethods, BioRead);
+	BIO_meth_set_read(BioMethods, BioInput);
 	BIO_meth_set_puts(BioMethods, BioPuts);
 	BIO_meth_set_ctrl(BioMethods, BioCtrl);
 	BIO_meth_set_create(BioMethods, BioNew);
@@ -512,8 +514,8 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 
 #ifdef TCLTLS_SSL_USE_FASTPATH
     /*
-     * If the channel can be mapped back to a file descriptor, just use the file descriptor
-     * with the SSL library since it will likely be optimized for this.
+     * If the channel can be mapped back to a file descriptor, just use the file
+     * descriptor with the SSL library since it will likely be optimized for this.
      */
     parentChannel = Tls_GetParent(statePtr, 0);
     parentChannelType = Tcl_GetChannelType(parentChannel);
@@ -523,9 +525,11 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
 	void *parentChannelFdIn_p, *parentChannelFdOut_p;
 	int tclGetChannelHandleRet;
 
-	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_READABLE, &parentChannelFdIn_p);
+	tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel,
+	    TCL_READABLE, &parentChannelFdIn_p);
 	if (tclGetChannelHandleRet == TCL_OK) {
-	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel, TCL_WRITABLE, &parentChannelFdOut_p);
+	    tclGetChannelHandleRet = Tcl_GetChannelHandle(parentChannel,
+	        TCL_WRITABLE, &parentChannelFdOut_p);
 	    if (tclGetChannelHandleRet == TCL_OK) {
 		parentChannelFdIn = PTR2INT(parentChannelFdIn_p);
 		parentChannelFdOut = PTR2INT(parentChannelFdOut_p);
@@ -538,7 +542,8 @@ BIO *BIO_new_tcl(State *statePtr, int flags) {
     }
 
     if (validParentChannelFd) {
-	dprintf("We found a shortcut, this channel is backed by a socket: %i", parentChannelFdIn);
+	dprintf("We found a shortcut, this channel is backed by a socket: %i",
+	    parentChannelFdIn);
 	bio = BIO_new_socket(parentChannelFd, flags);
 	statePtr->flags |= TLS_TCL_FASTPATH;
 	BIO_set_data(bio, statePtr);

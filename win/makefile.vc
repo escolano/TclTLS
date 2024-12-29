@@ -40,6 +40,7 @@ PRJ_INCLUDES = -I"$(SSL_INSTALL_FOLDER)\include" -I"$(OPENSSL_INSTALL_DIR)\inclu
 
 # Define any additional compiler flags that might be required for the project
 PRJ_DEFINES = -D NO_SSL2 -D NO_SSL3 /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /D__STDC_WANT_SECURE_LIB__=1
+# /DTCLTLS_SSL_USE_FASTPATH
 # /DTCLEXT_TCLTLS_DEBUG
 
 #
@@ -88,7 +89,7 @@ make-docs:
 	"$(TCLSH)" "$(DTPLITE)" -o "$DOCDIR" nroff "$(ROOT)\doc"
 !ENDIF
 
-docs: make-docs-n make-docs-html 
+docs: make-docs-n make-docs-html
 
 all: setup default-target
 
