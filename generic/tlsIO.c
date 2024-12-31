@@ -17,12 +17,22 @@
  */
 
 /*
+				Normal
 		tlsBIO.c				tlsIO.c
  +------+                        +---+                                 +---+
  |      |Tcl_WriteRaw<--BioOutput|SSL|BIO_write<--TlsOutputProc<--Write|   |
  |socket|      <encrypted>       |BIO|            <unencrypted>        |App|
  |      |Tcl_ReadRaw --> BioInput|   |BIO_Read -->TlsInputProc --> Read|   |
  +------+                        +---+                                 +---+
+
+
+				Fast Path
+					tlsIO.c
+  +------+             +-----+                                     +-----+
+  |      |<-- write <--| SSL |BIO_write <-- TlsOutputProc <-- Write|     |
+  |socket| <encrypted> | BIO |            <unencrypted>            | App |
+  |      |<--  read <--|     |BIO_Read  --> TlsInputProc  -->  Read|     |
+  +------+             +-----+                                     +-----+
 */
 
 #include "tlsInt.h"
@@ -220,10 +230,6 @@ int Tls_WaitForConnect(
 	    } else if (rc == SSL_ERROR_WANT_WRITE) {
 		bioShouldRetry = 1;
 		statePtr->want |= TCL_WRITABLE;
-	    } else if (BIO_should_retry(statePtr->bio)) {
-		bioShouldRetry = 1;
-	    } else if (rc == SSL_ERROR_SYSCALL && Tcl_GetErrno() == EAGAIN) {
-		bioShouldRetry = 1;
 	    }
 	}
 
@@ -247,7 +253,7 @@ int Tls_WaitForConnect(
     switch (rc) {
 	case SSL_ERROR_NONE:
 	    /* The TLS/SSL I/O operation completed successfully */
-	    dprintf("The connection is good");
+	    dprintf("SSL_ERROR_NONE");
 	    *errorCodePtr = 0;
 	    break;
 
@@ -255,7 +261,7 @@ int Tls_WaitForConnect(
 	    /* A non-recoverable, fatal error in the SSL library occurred,
 	       usually a protocol error. This includes certificate validation
 	       errors. */
-	    dprintf("SSL_ERROR_SSL: Got permanent fatal SSL error, aborting immediately");
+	    dprintf("SSL_ERROR_SSL: Fatal SSL protocol error occurred");
 	    if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
 		Tls_Error(statePtr,
 		    X509_verify_cert_error_string(SSL_get_verify_result(statePtr->ssl)));
@@ -267,9 +273,39 @@ int Tls_WaitForConnect(
 	    *errorCodePtr = ECONNABORTED;
 	    return -1;
 
+	case SSL_ERROR_WANT_READ:
+	    /* More data must be read from the underlying BIO layer in order to
+	       complete the actual SSL_*() operation.  */
+	    dprintf("SSL_ERROR_WANT_READ");
+	    BIO_set_retry_read(statePtr->bio);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(SSL_ERROR_WANT_READ, EAGAIN)");
+	    statePtr->want |= TCL_READABLE;
+	    return 0;
+
+	case SSL_ERROR_WANT_WRITE:
+	    /* There is data in the SSL buffer that must be written to the
+	       underlying BIO in order to complete the SSL_*() operation. */
+	    dprintf("SSL_ERROR_WANT_WRITE");
+	    BIO_set_retry_write(statePtr->bio);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(SSL_ERROR_WANT_WRITE, EAGAIN)");
+	    statePtr->want |= TCL_WRITABLE;
+	    return 0;
+
+	case SSL_ERROR_WANT_X509_LOOKUP:
+	    /* The operation did not complete because an application callback
+	       set by SSL_CTX_set_client_cert_cb() has asked to be called again. */
+	    dprintf("SSL_ERROR_WANT_X509_LOOKUP");
+	    BIO_set_retry_special(statePtr->bio);
+	    BIO_set_retry_reason(statePtr->bio, BIO_RR_SSL_X509_LOOKUP);
+	    *errorCodePtr = EAGAIN;
+	    dprintf("ERR(SSL_ERROR_WANT_X509_LOOKUP, EAGAIN)");
+	    return 0;
+
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
-	    dprintf("SSL_ERROR_SYSCALL");
+	    dprintf("SSL_ERROR_SYSCALL: Fatal I/O error occurred");
 
 	    if (backingError == 0 && err == 0) {
 		dprintf("EOF reached")
@@ -297,62 +333,32 @@ int Tls_WaitForConnect(
 	    return -1;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* Peer has closed the connection by sending the close_notify alert.
-	       Can't read, but can write. Need to return an EOF, so channel is
-	       closed which will send an SSL_shutdown(). */
-	    dprintf("SSL_ERROR_ZERO_RETURN: Connect returned an invalid value...");
+	    /* Peer has cleanly closed the connection by sending the close_notify
+	       alert. Can't read, but can write. Need to return an EOF, so the
+	       channel is closed which will send an SSL_shutdown(). */
+	    dprintf("SSL_ERROR_ZERO_RETURN: Peer has closed the connection");
 	    *errorCodePtr = ECONNRESET;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    return -1;
 
-	case SSL_ERROR_WANT_READ:
-	    /* More data must be read from the underlying BIO layer in order to
-	       complete the actual SSL_*() operation.  */
-	    dprintf("SSL_ERROR_WANT_READ");
-	    BIO_set_retry_read(statePtr->bio);
-	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(SSL_ERROR_WANT_READ, EAGAIN) ");
-	    statePtr->want |= TCL_READABLE;
-	    return 0;
-
-	case SSL_ERROR_WANT_WRITE:
-	    /* There is data in the SSL buffer that must be written to the
-	       underlying BIO in order to complete the SSL_*() operation. */
-	    dprintf("SSL_ERROR_WANT_WRITE");
-	    BIO_set_retry_write(statePtr->bio);
-	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(SSL_ERROR_WANT_WRITE, EAGAIN) ");
-	    statePtr->want |= TCL_WRITABLE;
-	    return 0;
-
 	case SSL_ERROR_WANT_CONNECT:
-	    /* Connect would have blocked. */
+	    /* The operation did not complete and connect would have blocked.
+	       Retry again after connection is established. */
 	    dprintf("SSL_ERROR_WANT_CONNECT");
 	    BIO_set_retry_special(statePtr->bio);
 	    BIO_set_retry_reason(statePtr->bio, BIO_RR_CONNECT);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(SSL_ERROR_WANT_CONNECT, EAGAIN) ");
+	    dprintf("ERR(SSL_ERROR_WANT_CONNECT, EAGAIN)");
 	    return 0;
 
 	case SSL_ERROR_WANT_ACCEPT:
-	    /* Accept would have blocked */
+	    /* The operation did not complete and accept would have blocked.
+	       Retry again after connection is established. */
 	    dprintf("SSL_ERROR_WANT_ACCEPT");
 	    BIO_set_retry_special(statePtr->bio);
 	    BIO_set_retry_reason(statePtr->bio, BIO_RR_ACCEPT);
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(SSL_ERROR_WANT_ACCEPT, EAGAIN) ");
-	    return 0;
-
-	case SSL_ERROR_WANT_X509_LOOKUP:
-	    /* Application callback set by SSL_CTX_set_client_cert_cb has asked
-	       to be called again. The operation did not complete because an
-	       application callback set by SSL_CTX_set_client_cert_cb() has
-	       asked to be called again. */
-	    dprintf("SSL_ERROR_WANT_X509_LOOKUP");
-	    BIO_set_retry_special(statePtr->bio);
-	    BIO_set_retry_reason(statePtr->bio, BIO_RR_SSL_X509_LOOKUP);
-	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(SSL_ERROR_WANT_X509_LOOKUP, EAGAIN) ");
+	    dprintf("ERR(SSL_ERROR_WANT_ACCEPT, EAGAIN)");
 	    return 0;
 
 	case SSL_ERROR_WANT_ASYNC:
@@ -373,7 +379,7 @@ int Tls_WaitForConnect(
 	    /* The operation did not complete and should be retried later. */
 	    dprintf("Operation did not complete, call function again later");
 	    *errorCodePtr = EAGAIN;
-	    dprintf("ERR(Other, EAGAIN) ");
+	    dprintf("ERR(Other, EAGAIN)");
 	    return 0;
     }
 
@@ -436,6 +442,7 @@ static int TlsInputProc(
 
 	tlsConnect = Tls_WaitForConnect(statePtr, errorCodePtr, 0);
 	if (tlsConnect < 0) {
+	    /* Failure, so abort */
 	    dprintf("Got an error waiting to connect (tlsConnect = %i, *errorCodePtr = %i)", tlsConnect, *errorCodePtr);
 
 	    bytesRead = -1;
@@ -445,6 +452,10 @@ static int TlsInputProc(
 		*errorCodePtr = 0;
 		bytesRead = 0;
 	    }
+	    return bytesRead;
+	} else if (tlsConnect == 0) {
+	    /* Try again */
+	    bytesRead = -1;
 	    return bytesRead;
 	}
     }
@@ -493,7 +504,6 @@ static int TlsInputProc(
 	    int reason = BIO_get_retry_reason(statePtr->bio);
 	    dprintf("BIO has some special condition other than read or write: code=%d", reason);
 	}
-	dprintf("BIO has pending data to write");
     }
 
     switch (err) {
@@ -506,7 +516,7 @@ static int TlsInputProc(
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred,
 	       usually a protocol error. */
-	    dprintf("SSL error, indicating that the connection has been aborted");
+	    dprintf("SSL_ERROR_SSL: Fatal SSL protocol error occurred");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, ERR_reason_error_string(backingError));
 	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
@@ -550,8 +560,8 @@ static int TlsInputProc(
 	    break;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
-	    /* Operation didn't complete since application callback set by
-	       SSL_CTX_set_client_cert_cb() asked to be called again. */
+	    /* The operation did not complete because an application callback
+	       set by SSL_CTX_set_client_cert_cb() has asked to be called again. */
 	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    bytesRead = -1;
@@ -559,7 +569,7 @@ static int TlsInputProc(
 
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
-	    dprintf("SSL_ERROR_SYSCALL");
+	    dprintf("SSL_ERROR_SYSCALL: Fatal I/O error occurred");
 
 	    if (backingError == 0 && bytesRead == 0) {
 		/* Unexpected EOF from the peer for OpenSSL 1.1 */
@@ -584,10 +594,10 @@ static int TlsInputProc(
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* Peer has closed the connection by sending the close_notify alert.
-	       Can't read, but can write. Need to return an EOF, so channel is
-	       closed which will send an SSL_shutdown(). */
-	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
+	    /* Peer has cleanly closed the connection by sending the close_notify
+	       alert. Can't read, but can write. Need to return an EOF, so the
+	       channel is closed which will send an SSL_shutdown(). */
+	    dprintf("SSL_ERROR_ZERO_RETURN: Peer has closed the connection");
 	    bytesRead = 0;
 	    *errorCodePtr = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
@@ -598,7 +608,7 @@ static int TlsInputProc(
 	       an async engine is still processing data. */
 	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
-	    bytesRead = -1;
+	    bytesRead = 0;
 	    break;
 
 	default:
@@ -674,6 +684,10 @@ static int TlsOutputProc(
 		written = 0;
 	    }
 	    return written;
+	} else if (tlsConnect == 0) {
+	    /* Try again */
+	    written = -1;
+	    return written;
 	}
     }
 
@@ -736,7 +750,6 @@ static int TlsOutputProc(
 	    int reason = BIO_get_retry_reason(statePtr->bio);
 	    dprintf("BIO has some special condition other than read or write: code=%d", reason);
 	}
-	dprintf("BIO has pending data to write");
 
     } else {
 	BIO_flush(statePtr->bio);
@@ -754,7 +767,7 @@ static int TlsOutputProc(
 	case SSL_ERROR_SSL:
 	    /* A non-recoverable, fatal error in the SSL library occurred,
 	       usually a protocol error */
-	    dprintf("SSL error, indicating that the connection has been aborted");
+	    dprintf("SSL_ERROR_SSL: Fatal SSL protocol error occurred");
 	    if (backingError != 0) {
 		Tls_Error(statePtr, ERR_reason_error_string(backingError));
 	    } else if (SSL_get_verify_result(statePtr->ssl) != X509_V_OK) {
@@ -769,7 +782,7 @@ static int TlsOutputProc(
 
 	case SSL_ERROR_WANT_READ:
 	    /* Operation did not complete due to not enough data was available.
-	       Retry again later. */
+	       Retry again later with same data. */
 	    dprintf("Got SSL_ERROR_WANT_READ, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
@@ -779,7 +792,7 @@ static int TlsOutputProc(
 
 	case SSL_ERROR_WANT_WRITE:
 	    /* Operation did not complete due to unable to send all data to the
-	       BIO. Retry later. */
+	       BIO. Retry later with same data. */
 	    dprintf("Got SSL_ERROR_WANT_WRITE, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
@@ -788,8 +801,8 @@ static int TlsOutputProc(
 	    break;
 
 	case SSL_ERROR_WANT_X509_LOOKUP:
-	    /* Operation didn't complete since application callback set by
-	       SSL_CTX_set_client_cert_cb() asked to be called again. */
+	    /* The operation did not complete because an application callback
+	       set by SSL_CTX_set_client_cert_cb() has asked to be called again. */
 	    dprintf("Got SSL_ERROR_WANT_X509_LOOKUP, mapping it to EAGAIN");
 	    *errorCodePtr = EAGAIN;
 	    written = -1;
@@ -797,7 +810,7 @@ static int TlsOutputProc(
 
 	case SSL_ERROR_SYSCALL:
 	    /* Some non-recoverable, fatal I/O error occurred */
-	    dprintf("SSL_ERROR_SYSCALL");
+	    dprintf("SSL_ERROR_SYSCALL: Fatal I/O error occurred");
 
 	    if (backingError == 0 && written == 0) {
 		dprintf("EOF reached")
@@ -820,21 +833,21 @@ static int TlsOutputProc(
 	    break;
 
 	case SSL_ERROR_ZERO_RETURN:
-	    /* Peer has closed the connection by sending the close_notify alert.
-	       Can't read, but can write. Need to return an EOF, so channel is
-	       closed which will send an SSL_shutdown(). */
-	    dprintf("Got SSL_ERROR_ZERO_RETURN, this means an EOF has been reached");
+	    /* Peer has cleanly closed the connection by sending the close_notify
+	       alert. Can't read, but can write. Need to return an EOF, so the
+	       channel is closed which will send an SSL_shutdown(). */
+	    dprintf("SSL_ERROR_ZERO_RETURN: Peer has closed the connection");
 	    *errorCodePtr = 0;
 	    written = 0;
 	    Tls_Error(statePtr, "Peer has closed the connection for writing by sending the close_notify alert");
 	    break;
 
 	case SSL_ERROR_WANT_ASYNC:
-	    /* Used with flag SSL_MODE_ASYNC, op didn't complete because an
-	       async engine is still processing data */
+	    /* Used with flag SSL_MODE_ASYNC, operation didn't complete because
+	       an async engine is still processing data. */
 	    dprintf("Got SSL_ERROR_WANT_ASYNC, mapping this to EAGAIN");
 	    *errorCodePtr = EAGAIN;
-	    written = -1;
+	    written = 0;
 	    break;
 
 	default:
@@ -1036,7 +1049,7 @@ TlsWatchProc(
     int mask)			/* Events of interest; an OR-ed combination of
 				 * TCL_READABLE, TCL_WRITABLE and TCL_EXCEPTION. */
 {
-    Tcl_Channel     parent;
+    Tcl_Channel parent;
     State *statePtr = (State *) instanceData;
     Tcl_DriverWatchProc *watchProc;
     int pending = 0;
@@ -1065,7 +1078,8 @@ TlsWatchProc(
 
     statePtr->watchMask = mask;
 
-    /* No channel handlers any more. We will be notified automatically about
+    /*
+     * No channel handlers any more. We will be notified automatically about
      * events on the channel below via a call to our 'TransformNotifyProc'. But
      * we have to pass the interest down now. We are allowed to add additional
      * 'interest' to the mask if we want to, but this transformation has no
@@ -1075,7 +1089,7 @@ TlsWatchProc(
     watchProc = Tcl_ChannelWatchProc(Tcl_GetChannelType(parent));
     watchProc(Tcl_GetChannelInstanceData(parent), mask);
 
-    /* Do we have any pending events */
+    /* Do we have any pending data */
     pending = (statePtr->want || \
 	((mask & TCL_READABLE) && ((Tcl_InputBuffered(statePtr->self) > 0) || (BIO_ctrl_pending(statePtr->bio) > 0))) ||
 	((mask & TCL_WRITABLE) && ((Tcl_OutputBuffered(statePtr->self) > 0) || (BIO_ctrl_wpending(statePtr->bio) > 0))));
@@ -1084,6 +1098,7 @@ TlsWatchProc(
 	statePtr->want, Tcl_InputBuffered(statePtr->self), Tcl_OutputBuffered(statePtr->self), \
 	BIO_ctrl_pending(statePtr->bio), BIO_ctrl_wpending(statePtr->bio), pending);
 
+    /* Schedule next event if data is pending, otherwise cease events for now */
     if (!(mask & TCL_READABLE) || pending == 0) {
 	/* Remove timer, if any */
 	if (statePtr->timer != (Tcl_TimerToken) NULL) {
@@ -1186,7 +1201,7 @@ static int TlsNotifyProc(
      * Delete an existing timer. It was not fired, yet we are here, so the
      * channel below generated such an event and we don't have to. The renewal
      * of the interest after the execution of channel handlers will eventually
-     * cause us to recreate the timer (in WatchProc).
+     * cause us to recreate the timer (in TlsWatchProc).
      */
     if (statePtr->timer != (Tcl_TimerToken) NULL) {
 	Tcl_DeleteTimerHandler(statePtr->timer);

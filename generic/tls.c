@@ -84,6 +84,7 @@ static SSL_CTX *CTX_Init(State *statePtr, int isServer, int proto, char *key,
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 EvalCallback(
     Tcl_Interp *interp,		/* Tcl interpreter */
@@ -138,6 +139,7 @@ EvalCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static void
 InfoCallback(
     const SSL *ssl,		/* SSL context */
@@ -214,6 +216,7 @@ InfoCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 #ifndef OPENSSL_NO_SSL_TRACE
 static void
 MessageCallback(
@@ -363,6 +366,7 @@ MessageCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 VerifyCallback(
     int ok,			/* Verify result */
@@ -432,6 +436,7 @@ VerifyCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 void
 Tls_Error(
     State *statePtr,		/* Client state for TLS socket */
@@ -489,6 +494,7 @@ Tls_Error(
  *
  *-------------------------------------------------------------------
  */
+ 
 void KeyLogCallback(
     const SSL *ssl,		/* Client state for TLS socket */
     const char *line)		/* Key data to be logged */
@@ -525,6 +531,7 @@ void KeyLogCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 PasswordCallback(
     char *buf,			/* Pointer to buffer to store password in */
@@ -609,6 +616,7 @@ PasswordCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 SessionCallback(
     SSL *ssl,			/* SSL context */
@@ -681,6 +689,7 @@ SessionCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 ALPNCallback(
     SSL *ssl,			/* SSL context */
@@ -755,6 +764,7 @@ ALPNCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 #ifdef USE_NPN
 static int
 NPNCallback(
@@ -809,6 +819,7 @@ NPNCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 SNICallback(
     const SSL *ssl,		/* SSL context */
@@ -885,6 +896,7 @@ SNICallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 HelloCallback(
     SSL *ssl,			/* SSL context */
@@ -985,6 +997,7 @@ HelloCallback(
  *
  *-------------------------------------------------------------------
  */
+ 
 static const char *protocols[] = {
     "ssl2", "ssl3", "tls1", "tls1.1", "tls1.2", "tls1.3", NULL
 };
@@ -1252,7 +1265,7 @@ static int HandshakeObjCmd(
     ret = Tls_WaitForConnect(statePtr, &err, 1);
     dprintf("Tls_WaitForConnect returned: %i", ret);
 
-    if (ret < 0 && ((statePtr->flags & TLS_TCL_ASYNC) && (err == EAGAIN))) {
+    if (ret <= 0 && ((statePtr->flags & TLS_TCL_ASYNC) && (err == EAGAIN))) {
 	dprintf("Async set and err = EAGAIN");
 	ret = 0;
     } else if (ret < 0) {
@@ -1833,6 +1846,7 @@ UnimportObjCmd(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 TlsLoadClientCAFileFromMemory(
     Tcl_Interp *interp,		/* Tcl interpreter */
@@ -2381,6 +2395,7 @@ CTX_Init(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 StatusObjCmd(
     TCL_UNUSED(ClientData),	/* Client data */
@@ -2787,6 +2802,7 @@ static int ConnectionInfoObjCmd(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 VersionObjCmd(
     TCL_UNUSED(ClientData),	/* Client data */
@@ -2817,6 +2833,7 @@ VersionObjCmd(
  *
  *-------------------------------------------------------------------
  */
+ 
 static int
 MiscObjCmd(
     TCL_UNUSED(ClientData),	/* Client data */
@@ -3041,6 +3058,7 @@ MiscObjCmd(
  *
  *-------------------------------------------------------------------
  */
+ 
 void
 Tls_Free(
     tls_free_type *blockPtr)	/* Client state for TLS socket */
@@ -3071,6 +3089,7 @@ Tls_Free(
  *
  *-------------------------------------------------------------------
  */
+ 
 void Tls_Clean(
     State *statePtr)		/* Client state for TLS socket */
 {
@@ -3229,6 +3248,7 @@ BuildInfoCommand(
  *
  *------------------------------------------------------*
  */
+ 
 void TlsLibShutdown(
     ClientData clientData)	/* Not used */
 {
@@ -3252,6 +3272,7 @@ void TlsLibShutdown(
  *
  *------------------------------------------------------*
  */
+ 
 static int TlsLibInit() {
     static int initialized = 0;
 
@@ -3359,6 +3380,7 @@ DLLEXPORT int Tls_Init(
  *
  *-------------------------------------------------------------------
  */
+ 
 DLLEXPORT int Tls_SafeInit(
     Tcl_Interp *interp)		/* Tcl interpreter */
 {
