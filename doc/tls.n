@@ -1057,7 +1057,8 @@ It may be removed from future releases\&.\fR
 .SH "DEBUG EXAMPLES"
 These examples use the default Unix platform SSL certificates\&. For standard
 installations, -cadir and -cafile should not be needed\&. If your certificates
-are in non-standard locations, specify -cadir or -cafile as needed\&.
+are in non-standard locations, specify -cadir or -cafile as needed\&. See the
+demos directory for more elaborate examples\&.
 .PP
 Example #1: Use HTTP package
 .CS

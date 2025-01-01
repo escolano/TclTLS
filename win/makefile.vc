@@ -140,7 +140,7 @@ $(TMP_DIR)\tlsUuid.h:	$(TMP_DIR)\manifest.uuid
 # an additional target for our documentation. Note this *adds* a target
 # since no commands are listed after it. The original targets for
 # install (from targets.vc) will remain.
-install: pkgindex default-install default-install-docs-html
+install: pkgindex default-install default-install-docs-html default-install-demos
 !IF EXIST($(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll)
 	@xcopy /c /y "$(SSL_INSTALL_FOLDER)\bin\libcrypto-*-x64.dll" "$(PRJ_INSTALL_DIR)"
 !ENDIF
