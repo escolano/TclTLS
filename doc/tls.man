@@ -849,114 +849,56 @@ for logging key data for network logging tools to use to decrypt the data.
 
 [para]
 
-The [var tls::debug] variable provides some additional control over these
-reference callbacks. Its value is zero by default. Higher values produce more
-diagnostic output, and will also force the verify method in [cmd tls::callback]
-to accept the certificate, even when it is invalid if the
-[option -validatecommand] option is set to [cmd tls::validate_command].
+The [var tls::debug] variable provides some additional control over the
+debug logging in the [cmd tls::callback], [cmd tls::password], and
+[cmd tls::validate_command] default handlers in [file tls.tcl].
+The default value is 0 with higher values producing more diagnostic output,
+and will also force the verify method in [cmd tls::callback] to accept the
+certificate, even if it is invalid when the [option -validatecommand]
+option is set to [cmd tls::validate_command].
 
 [para]
 
 [emph "The use of the variable [var tls::debug] is not recommended.
 It may be removed from future releases."]
 
-[section "Debug Examples"]
-
-These examples use the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, specify -cadir or -cafile as needed. See the
-demos directory for more elaborate examples.
-
-[para]
-
-Example #1: Use HTTP package
-
-[example {
-
-package require http
-package require tls
-set url "https://www.tcl.tk/"
-
-http::register https 443 [list ::tls::socket -autoservername 1 -require 1 \
-    -command ::tls::callback -password ::tls::password \
-    -validatecommand ::tls::validate_command]
-
-# Check for error
-set token [http::geturl $url]
-if {[http::status $token] ne "ok"} {
-    puts [format "Error %s" [http::status $token]]
-}
-
-# Get web page
-set data [http::data $token]
-puts [string length $data]
-
-# Cleanup
-::http::cleanup $token
-}]
-
-Example #2: Use raw socket
-
-[example {
-
-package require tls
-
-set url "www.tcl-lang.org"
-set port 443
-
-set ch [tls::socket -autoservername 1 -servername $url -require 1 \
-    -alpn {http/1.1} -command ::tls::callback -password ::tls::password \
-    -validatecommand ::tls::validate_command $url $port]
-chan configure $ch -buffersize 65536
-tls::handshake $ch
-
-puts $ch "GET / HTTP/1.1"
-flush $ch
-after 500
-set data [read $ch]
-
-array set status [tls::status $ch]
-array set conn [tls::connection $ch]
-array set chan [chan configure $ch]
-close $ch
-parray status
-parray conn
-parray chan
-}]
-
 [section "HTTP Package Examples"]
 
-These examples use the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, set -cadir or use -cafile as needed.
+The following are example scripts to download a webpage and file using the
+http package. See [sectref "Certificate Validation"] for whether the
+[option -cadir], [option -cafile], and [option -castore] options are also
+needed. See the demos directory for more example scripts.
 
 [para]
 
-Example #3: Get web page
+Example #1: Download a web page
 
 [example {
 
 package require http
 package require tls
-set url "https://www.tcl.tk/"
 
+set url "https://www.tcl.tk/"
 http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
-# Check for error
+# Get URL
 set token [http::geturl $url]
+
+# Check for error
 if {[http::status $token] ne "ok"} {
     puts [format "Error %s" [http::status $token]]
 }
 
-# Get web page
-set data [http::data $token]
-puts $data
+# Save web page to file
+set ch [open example.html wb]
+puts $ch [http::data $token]
+close $ch
 
 # Cleanup
 ::http::cleanup $token
 }]
 
-Example #4: Download file
+Example #2: Download a file
 
 [example {
 
@@ -964,13 +906,19 @@ package require http
 package require tls
 
 set url "https://wiki.tcl-lang.org/sitemap.xml"
-set filename [file tail $url]
-
 http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
 
-# Get file
+# Open output file
+set filename [file tail $url]
 set ch [open $filename wb]
+
+# Get file
 set token [::http::geturl $url -blocksize 65536 -channel $ch]
+
+# Check for error
+if {[http::status $token] ne "ok"} {
+    puts [format "Error %s" [http::status $token]]
+}
 
 # Cleanup
 close $ch

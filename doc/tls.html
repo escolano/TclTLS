@@ -125,9 +125,8 @@
 </ul>
 </li>
 <li class="doctools_section"><a href="#section5">Debug</a></li>
-<li class="doctools_section"><a href="#section6">Debug Examples</a></li>
-<li class="doctools_section"><a href="#section7">HTTP Package Examples</a></li>
-<li class="doctools_section"><a href="#section8">Special Considerations</a></li>
+<li class="doctools_section"><a href="#section6">HTTP Package Examples</a></li>
+<li class="doctools_section"><a href="#section7">Special Considerations</a></li>
 <li class="doctools_section"><a href="#see-also">See Also</a></li>
 <li class="doctools_section"><a href="#keywords">Keywords</a></li>
 <li class="doctools_section"><a href="#category">Category</a></li>
@@ -761,94 +760,61 @@ further troubleshooting insight is needed, the compile time option
 <b class="variable">SSLKEYLOGFILE</b> to the name of the file to log to. Then whenever TLS key
 material is generated or received it will be logged to the file. This is useful
 for logging key data for network logging tools to use to decrypt the data.</p>
-<p>The <b class="variable">tls::debug</b> variable provides some additional control over these
-reference callbacks. Its value is zero by default. Higher values produce more
-diagnostic output, and will also force the verify method in <b class="cmd">tls::callback</b>
-to accept the certificate, even when it is invalid if the
-<b class="option">-validatecommand</b> option is set to <b class="cmd">tls::validate_command</b>.</p>
+<p>The <b class="variable">tls::debug</b> variable provides some additional control over the
+debug logging in the <b class="cmd">tls::callback</b>, <b class="cmd">tls::password</b>, and
+<b class="cmd">tls::validate_command</b> default handlers in &quot;<b class="file">tls.tcl</b>&quot;.
+The default value is 0 with higher values producing more diagnostic output,
+and will also force the verify method in <b class="cmd">tls::callback</b> to accept the
+certificate, even if it is invalid when the <b class="option">-validatecommand</b>
+option is set to <b class="cmd">tls::validate_command</b>.</p>
 <p><em>The use of the variable <b class="variable">tls::debug</b> is not recommended.
 It may be removed from future releases.</em></p>
 </div>
-<div id="section6" class="doctools_section"><h2><a name="section6">Debug Examples</a></h2>
-<p>These examples use the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, specify -cadir or -cafile as needed. See the
-demos directory for more elaborate examples.</p>
-<p>Example #1: Use HTTP package</p>
-<pre class="doctools_example">
-package require http
-package require tls
-set url &quot;https://www.tcl.tk/&quot;
-http::register https 443 [list ::tls::socket -autoservername 1 -require 1  -command ::tls::callback -password ::tls::password  -validatecommand ::tls::validate_command]
-# Check for error
-set token [http::geturl $url]
-if {[http::status $token] ne &quot;ok&quot;} {
-    puts [format &quot;Error %s&quot; [http::status $token]]
-}
-# Get web page
-set data [http::data $token]
-puts [string length $data]
-# Cleanup
-::http::cleanup $token
-</pre>
-<p>Example #2: Use raw socket</p>
-<pre class="doctools_example">
-package require tls
-set url &quot;www.tcl-lang.org&quot;
-set port 443
-set ch [tls::socket -autoservername 1 -servername $url -require 1  -alpn {http/1.1} -command ::tls::callback -password ::tls::password  -validatecommand ::tls::validate_command $url $port]
-chan configure $ch -buffersize 65536
-tls::handshake $ch
-puts $ch &quot;GET / HTTP/1.1&quot;
-flush $ch
-after 500
-set data [read $ch]
-array set status [tls::status $ch]
-array set conn [tls::connection $ch]
-array set chan [chan configure $ch]
-close $ch
-parray status
-parray conn
-parray chan
-</pre>
-</div>
-<div id="section7" class="doctools_section"><h2><a name="section7">HTTP Package Examples</a></h2>
-<p>These examples use the default Unix platform SSL certificates. For standard
-installations, -cadir and -cafile should not be needed. If your certificates
-are in non-standard locations, set -cadir or use -cafile as needed.</p>
-<p>Example #3: Get web page</p>
+<div id="section6" class="doctools_section"><h2><a name="section6">HTTP Package Examples</a></h2>
+<p>The following are example scripts to download a webpage and file using the
+http package. See <span class="sectref"><a href="#section3">Certificate Validation</a></span> for whether the
+<b class="option">-cadir</b>, <b class="option">-cafile</b>, and <b class="option">-castore</b> options are also
+needed. See the demos directory for more example scripts.</p>
+<p>Example #1: Download a web page</p>
 <pre class="doctools_example">
 package require http
 package require tls
 set url &quot;https://www.tcl.tk/&quot;
 http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
-# Check for error
+# Get URL
 set token [http::geturl $url]
+# Check for error
 if {[http::status $token] ne &quot;ok&quot;} {
     puts [format &quot;Error %s&quot; [http::status $token]]
 }
-# Get web page
-set data [http::data $token]
-puts $data
+# Save web page to file
+set ch [open example.html wb]
+puts $ch [http::data $token]
+close $ch
 # Cleanup
 ::http::cleanup $token
 </pre>
-<p>Example #4: Download file</p>
+<p>Example #2: Download a file</p>
 <pre class="doctools_example">
 package require http
 package require tls
 set url &quot;https://wiki.tcl-lang.org/sitemap.xml&quot;
-set filename [file tail $url]
 http::register https 443 [list ::tls::socket -autoservername 1 -require 1]
-# Get file
+# Open output file
+set filename [file tail $url]
 set ch [open $filename wb]
+# Get file
 set token [::http::geturl $url -blocksize 65536 -channel $ch]
+# Check for error
+if {[http::status $token] ne &quot;ok&quot;} {
+    puts [format &quot;Error %s&quot; [http::status $token]]
+}
 # Cleanup
 close $ch
 ::http::cleanup $token
 </pre>
 </div>
-<div id="section8" class="doctools_section"><h2><a name="section8">Special Considerations</a></h2>
+<div id="section7" class="doctools_section"><h2><a name="section7">Special Considerations</a></h2>
 <p>The capabilities of this package can vary enormously based upon how the
 linked to OpenSSL library was configured and built. New versions may obsolete
 older protocol versions, add or remove ciphers, change default values, etc.

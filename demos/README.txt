@@ -13,12 +13,18 @@ Download a webpage using gets, no variable arg, and non-blocking I/O.
 gets_nonblocking_with_variable.tcl
 Download a webpage using gets, variable arg, and non-blocking I/O.
 
+gets_with_debug_data.tcl
+Download a webpage using gets with additional debug output.
+
+http_debug_example.tcl
+Download a webpage using http package with additional debug output.
+
 http_get_file.tcl
 Download a webpage using the http package.
 
 http_get_webpage.tcl
 Download a file using the http package.
- 
+
 http_get_webpage_proxy.tcl
 Download a file using the http and autoproxy packages.
 
