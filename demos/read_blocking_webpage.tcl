@@ -38,7 +38,7 @@ proc save_file {filename data} {
 
 proc read_blocking {host port path protocol} {
     set result ""
-    
+
     # Open socket
     set ch [::tls::socket -servername $host -request 1 -require 1 -alpn [list [string tolower $protocol]] $host $port]
     chan configure $ch -blocking 1 -buffering line -buffersize 16384 -encoding utf-8 -translation {auto crlf}

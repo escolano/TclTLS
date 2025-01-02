@@ -14,7 +14,7 @@ set filename [file tail $url]
 
 # Register https protocol handler with http package
 http::register https 443 [list ::tls::socket -autoservername 1 -require 1 -alpn [list [string tolower $protocol]]]
-	    
+
 # Open output file
 set ch [open $filename wb]
 
