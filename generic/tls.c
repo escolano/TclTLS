@@ -2699,7 +2699,7 @@ static int ConnectionInfoObjCmd(
 	LAPPEND_BOOL(interp, objPtr, "resumable", SSL_SESSION_is_resumable(session));
 
 	/* Session start time (seconds since epoch) */
-	LAPPEND_LONG(interp, objPtr, "start_time", SSL_SESSION_get_time(session));
+	LAPPEND_LONG(interp, objPtr, "start_time", SSL_SESSION_get_time_ex(session));
 
 	/* Timeout value - SSL_CTX_get_timeout (in seconds) */
 	LAPPEND_LONG(interp, objPtr, "timeout", SSL_SESSION_get_timeout(session));
@@ -3297,9 +3297,11 @@ static int TlsLibInit() {
 }
 
 /* Init script */
+/*
 static const char tlsTclInitScript[] = {
 #include "tls.tcl.h"
 };
+*/
 
 /*
  *-------------------------------------------------------------------
@@ -3324,7 +3326,7 @@ static const char tlsTclInitScript[] = {
 #define MIN_VERSION "8.5"
 #endif
 
-DLLEXPORT int Tls_Init(
+TLS_DLLEXPORT int Tls_Init(
     Tcl_Interp *interp)		/* Tcl interpreter */
 {
 
@@ -3358,9 +3360,11 @@ DLLEXPORT int Tls_Init(
 
     BuildInfoCommand(interp);
 
+    /*
     if (interp && Tcl_Eval(interp, tlsTclInitScript) != TCL_OK) {
 	return TCL_ERROR;
     }
+    */
 
     return Tcl_PkgProvide(interp, PACKAGE_NAME, PACKAGE_VERSION);
 }
@@ -3381,7 +3385,7 @@ DLLEXPORT int Tls_Init(
  *-------------------------------------------------------------------
  */
  
-DLLEXPORT int Tls_SafeInit(
+TLS_DLLEXPORT int Tls_SafeInit(
     Tcl_Interp *interp)		/* Tcl interpreter */
 {
     dprintf("Called");
