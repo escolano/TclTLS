@@ -2439,7 +2439,9 @@ StatusObjCmd(
 
     /* Get certificate for peer or self */
     if (objc == 2) {
-	peer = SSL_get_peer_certificate(statePtr->ssl);
+	//peer = SSL_get_peer_certificate(statePtr->ssl);
+        // The function SSL_get_peer_certificate was deprecated in OpenSSL 1.1.0 and removed in 3.0+
+	peer = SSL_get1_peer_certificate(statePtr->ssl);
     } else {
 	peer = SSL_get_certificate(statePtr->ssl);
     }
